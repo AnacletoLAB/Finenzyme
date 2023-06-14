@@ -1,1 +1,0 @@
-ckpt/pretrain_progen_full.pth filter=lfs diff=lfs merge=lfs -text
