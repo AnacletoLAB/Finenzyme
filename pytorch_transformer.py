@@ -9,6 +9,7 @@ import re
 import math
 import argparse
 import tensorflow as tf
+GPU = True
 torch.set_default_dtype(torch.float32)
 from tensorflow.python import pywrap_tensorflow
 
@@ -119,8 +120,11 @@ class Encoder(torch.nn.Module):
     print("MODEL SIZE: ")
     print(self.d_model_size)
     self.num_layers = num_layers
+    if GPU:
+        self.pos_encoding = positional_encoding(input_vocab_size, d_model_size).to('cuda')
+    else:
+        self.pos_encoding = positional_encoding(input_vocab_size, d_model_size).to('cpu')
     
-    self.pos_encoding = positional_encoding(input_vocab_size, d_model_size).to('cpu')
 
     for i in range(num_layers):
       setattr(self, "layer%i" % i, EncoderLayer(d_model_size, num_heads, dff, rate))
@@ -131,7 +135,10 @@ class Encoder(torch.nn.Module):
   def forward(self, x):
 
     seq_len = x.shape[1]
-    mask = torch.triu(torch.ones(seq_len, seq_len), 1).to('cpu')
+    if GPU:
+        mask = torch.triu(torch.ones(seq_len, seq_len), 1).to('cuda')
+    else:
+        mask = torch.triu(torch.ones(seq_len, seq_len), 1).to('cpu')
     x *= np.sqrt(self.d_model_size)
     x += self.pos_encoding[:, :seq_len, :]
 
