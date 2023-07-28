@@ -9,7 +9,7 @@ import re
 import math
 import argparse
 import tensorflow as tf
-GPU = True
+GPU = False
 torch.set_default_dtype(torch.float32)
 from tensorflow.python import pywrap_tensorflow
 
@@ -107,7 +107,24 @@ class EncoderLayer(torch.nn.Module):
     out2 = out1 + ffn_output
     
     return out2
+'''
+class CustomLayerNorm(torch.nn.Module):
+    def __init__(self, normalized_shape, weight=None, bias=None, eps=1e-5):
+        super(CustomLayerNorm, self).__init__()
+        self.normalized_shape = normalized_shape
+        self.eps = eps
+        if weight is not None:
+            self.weight = nn.Parameter(weight)
+        else:
+            self.weight = None
+        if bias is not None:
+            self.bias = nn.Parameter(bias)
+        else:
+            self.bias = None
 
+    def forward(self, input):
+        return F.layer_norm(input, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps, dtype=torch.float32)
+'''
 
 # for oct28 and nov07 ckpt-> num_layers=24, d_model_size=1280, num_heads=16, dff=5120,
 # for ctrl_36 -> num_layers=36, d_model_size=1280, num_heads=16, dff=8192, input_vocab_size=50000,rate=0.1,
