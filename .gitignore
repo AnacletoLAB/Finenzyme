@@ -8,6 +8,8 @@ __pycache__/
 
 # ckpt too big files
 ckpt/
+results_noGit/
+data_random_selection_uniParc/
 
 # mac os
 .DS_Store
