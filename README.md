@@ -3,11 +3,11 @@ language modeling for protein sequences
 
 ## Setup
 1. Pip install requirements file
-2. Patch the `/usr/local/lib/python2.7/dist-packages/tensorflow_estimator/python/estimator/keras.py` (or equivalent, if installed elsewhere) by running ```patch -b <path_to_tensorflow_estimator_package>/python/estimator/keras.py estimator.patch```
-3. To download the pre-trained general model: `gdown https://drive.google.com/drive/folders/1_odDCoRF35LmdTZH-bS6JICiedcqIlRs?usp=share_link -O ckpt --folder`
+2. To download the pre-trained general model: `gdown https://drive.google.com/drive/folders/1_odDCoRF35LmdTZH-bS6JICiedcqIlRs?usp=share_link -O ckpt --folder`
+3. To download test predictions: `gdown https://drive.google.com/drive/folders/1xgR0dj2iqgqKjZQ3KiDSNNVojgkFMsQ_?usp=share_link -O results -- folder`
 
 ## Training Command
-Currently you can train by running `python training.py --tfrecords_dir <PATH> --model_dir <PATH>`. 
+Currently you can train by running `TODO`. 
 
 ## Pretraining Vocabulary
 The categories for lines in `vocab.txt`:
