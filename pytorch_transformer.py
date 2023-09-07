@@ -9,7 +9,7 @@ import re
 import math
 import argparse
 import tensorflow as tf
-GPU = True
+GPU = False
 torch.set_default_dtype(torch.float32)
 from tensorflow.python import pywrap_tensorflow
 
