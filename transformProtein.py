@@ -50,19 +50,20 @@ class transformProtein:
         """
         if self.noflipseq:
             return seq
-        if np.random.random()>=0.5:
+        if np.random.random()>=0.9:
             seq = seq[::-1]
         return seq
 
-    def transformKwSet(self, kws, drop = 0.2):
+    def transformKwSet(self, kws, drop = 0.1):
         """
         Filter kws, dropout, and replace with lineage (including term at end)
         """
-        kws = [i for i in kws if i in self.kw_to_ctrl]
+        # kws = [i for i in kws if i in self.kw_to_ctrl]
         np.random.shuffle(kws)
         kws = kws[:self.maxKwPerSample]
         
-        kws = [random.choice(self.kw_to_lineage[i]) for i in kws if np.random.random()>drop]
+        if np.random.random()<=drop:
+            kws = []
       
         return kws
 
@@ -86,21 +87,11 @@ class transformProtein:
         Returns an encoded sample (taxa's,kw's,sequence) and the existence level
         """
         existence = 3
-        if (not self.seqonly) and (proteinDict['swiss']!={}) and (np.random.random()<self.selectSwiss):
-            ttype = 'swiss'
-            uniprotKBid = random.choice(tuple(proteinDict[ttype].keys()))
-            existence = proteinDict[ttype][uniprotKBid]['ex']
-            kws = self.transformKwSet(proteinDict[ttype][uniprotKBid]['kw'], drop = self.dropRate)
-            taxa = self.transformTaxaSet(proteinDict[ttype][uniprotKBid]['taxa'], drop = self.dropRate)
-        elif (not self.seqonly) and (proteinDict['trembl']!={}) and (np.random.random()<self.selectTrembl):
-            ttype = 'trembl'
-            uniprotKBid = random.choice(tuple(proteinDict[ttype].keys()))
-            existence = proteinDict[ttype][uniprotKBid]['ex']
-            kws = self.transformKwSet(proteinDict[ttype][uniprotKBid]['kw'], drop = self.dropRate)
-            taxa = self.transformTaxaSet(proteinDict[ttype][uniprotKBid]['taxa'], drop = self.dropRate)
+        if (not self.seqonly):
+            existence = 3
+            kws = self.transformKwSet(proteinDict['kw'], drop = self.dropRate)
         elif (not self.seqonly):
             kws = {}
-            taxa = self.transformTaxaSet(proteinDict['other_taxa'], drop = self.dropRate)
         seq = self.transformSeq(proteinDict['seq'])
 
         if self.seqonly:
@@ -115,7 +106,22 @@ class transformProtein:
                 print(seq)
                 print(encodedSample)
             return encodedSample
-        
+            
+        encodedSample = []
+        if self.oneEncoderLength:
+            if justidx:
+                for kw_line in kws:
+                    encodedSample.extend(kws)
+                seq_idx = 0
+                while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
+                    encodedSample.append(self.aa_to_ctrl[seq[seq_idx]])
+                    seq_idx += 1
+                thePadIndex = len(encodedSample)
+                while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
+                    encodedSample.append(self.oneEncoderLength)
+            else: 
+                os.exit('error fatal')
+                
         if self.verbose:
             print('Raw Data')
             for k in proteinDict:
@@ -125,50 +131,22 @@ class transformProtein:
             print('Seq',seq)
             print('Existence', existence)
             print('KWs',kws)
-            print('Taxa',taxa)
+            print('encodedSample',encodedSample)
+            print('thePadIndex', thePadIndex)
             
-        encodedSample = []
-        if self.oneEncoderLength:
-            if justidx:
-                for tax_line in taxa:
-                    encodedSample.extend([self.taxa_to_ctrl[tax] for tax in tax_line])
-                for kw_line in kws:
-                    encodedSample.extend([self.kw_to_ctrl[kw] for kw in kw_line])
-                seq_idx = 0
-                while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
-                    encodedSample.append(self.aa_to_ctrl[seq[seq_idx]])
-                    seq_idx += 1
-                thePadIndex = len(encodedSample)
-                while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
-                    encodedSample.append(self.oneEncoderLength)
-            else: # TODO: increase dim by 1 and include padding token. OUTDATED code below
-                for tax in taxa:
-                    token = np.zeros(self.oneEncoderLength, dtype = np.uint8)
-                    token[self.taxa_to_ctrl[tax]] = 1
-                    encodedSample.append(token)
-                for kw in kws:
-                    token = np.zeros(self.oneEncoderLength, dtype = np.uint8)
-                    token[self.kw_to_ctrl[kw]] = 1
-                    encodedSample.append(token)
-                seq_idx = 0
-                while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
-                    token = np.zeros(self.oneEncoderLength, dtype = np.uint8)
-                    token[self.aa_to_ctrl[seq[seq_idx]]] = 1
-                    encodedSample.append(token)
-                    seq_idx += 1
-                # Padding
-                while len(encodedSample)<self.maxSampleLength:
-                    token = np.zeros(self.oneEncoderLength, dtype = np.uint8)
-                    encodedSample.append(token)
-
         return encodedSample, existence, thePadIndex
 
 if __name__ == "__main__":
     chunknum = 0
-    with open('/export/share/amadani/protein-data/train_test/train'+str(chunknum)+'.p','rb') as handle:
+    with open('data/train_test_pkl/train'+str(chunknum)+'.p','rb') as handle:
         train_chunk = pickle.load(handle)
-    uid = 'UPI000000BF1A'
+    #uid = 'UPI000000BF1A'
     #uid = random.sample(train_chunk.keys(),1)[0]
-    obj = transformProtein(verbose=True, dropRate = 0.0, maxTaxaPerSample = 3, maxKwPerSample = 5, 
-                           selectSwiss = 1.0, selectTrembl = 1.0, seqonly = True)
-    print(obj.transformSample(train_chunk[uid]))
+    obj = transformProtein(verbose=True, dropRate = 0.1, maxTaxaPerSample = 3, maxKwPerSample = 5, 
+                           selectSwiss = 1.0, selectTrembl = 1.0, seqonly = False)
+    i = 0
+    for key in train_chunk:
+        print(obj.transformSample(train_chunk[key]))
+        i += 1
+        if i == 2:
+            break

@@ -20,23 +20,25 @@ from ProteinDataset import ProteinDataset
 from torch.utils.data import Dataset, DataLoader
 import pickle
 
+GPU = True
+
 use_py3 = platform.python_version()[0] == '3'
 
 parser = argparse.ArgumentParser(description='TensorFlow code for generating from CTRL')
-parser.add_argument('--model_dir', type =str, default='model_v0.pth',
+parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt/model_v0.pth',
                                         help='location of training model checkpoint')
-parser.add_argument('--model_path', type=str, default='/home/amadani/ctrl/ckpt/seqlen256_36layers_v0.ckpt/model.ckpt-684000', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
+parser.add_argument('--model_path', type=str, default='/ckpt/pretrain_progen_full.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
 parser.add_argument('--seed', type=int, default=313,
                                         help='random seed for TensorFlow, numpy and PythonHash')
 parser.add_argument('--sequence_len', type=int, default=511,
                                         help='sequence len of model being fine-tuned')
-parser.add_argument('--num_epochs', type=int, default=10000, help='number of epochs to train for')
+parser.add_argument('--num_epochs', type=int, default=4, help='number of epochs to train for')
 parser.add_argument('--num_layers', type=int, default=36, help='number of transfomer layers. used for loading checkpoint')
-parser.add_argument('--batch_size', type=int, default = 4, help='batch size for dataloader')
+parser.add_argument('--batch_size', type=int, default=2, help='batch size for dataloader')
 parser.add_argument('--vocab_loc', type=str, default='mapping_files/vocab.txt', help='vocab location')
 parser.add_argument('--num_workers', type=int, default=0, help='for dataloader')
-parser.add_argument('--warmup_iteration', type=int, default=1000, help='LR warmup cutoff')
-parser.add_argument('--save_iter', type=int, default=1000, help='save model checkpoint every X iterations')
+parser.add_argument('--warmup_iteration', type=int, default=1, help='LR warmup cutoff')
+parser.add_argument('--save_iter', type=int, default=1, help='save model checkpoint every X iterations')
 
 args = parser.parse_args()
 torch.manual_seed(args.seed)
@@ -85,6 +87,23 @@ class CTRLmodel(torch.nn.Module):
     x = self.tied_embedding_softmax(x, embed = False)
     return x
 
+  '''
+    def loadCheckpoint(self, model_path, num_layers):
+    # pytorch_model_hash = hashlib.md5(model_path.encode('utf-8')).hexdigest()
+    if os.path.exists(model_path):
+      print('Found PyTorch checkpoint')
+      print('Loading checkpoint')
+      checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+      # checkpoint = torch.load(pytorch_model_hash)
+      self.tied_embedding_softmax.load_state_dict({
+                'w': checkpoint.pop('tied_embedding_softmax.w', None),
+                'b': checkpoint.pop('tied_embedding_softmax.b', None)
+            })
+      self.encoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
+    else:
+      print('FATAL ERROR NO CHECKPOINT AVIABLE.')
+  '''
+  
   def loadCheckpoint(self, model_path, num_layers):
     pytorch_model_hash = hashlib.md5(model_path.encode('utf-8')).hexdigest()
 
@@ -95,49 +114,7 @@ class CTRLmodel(torch.nn.Module):
       self.tied_embedding_softmax.load_state_dict(checkpoint['softmax'])
       self.encoder.load_state_dict(checkpoint['encoder'])
     else:
-      print('Could not find PyTorch checkpoint')
-      print('Converting weights and will store the PyTorch checkpoint as ', pytorch_model_hash)
-      chkpt_for_reader = model_path # '.'.join(model_path.split('.')[:-1])
-      reader = pywrap_tensorflow.NewCheckpointReader(chkpt_for_reader)
-      #self.tied_embedding_softmax.w = torch.nn.Parameter(torch.tensor(reader.get_tensor('w')).to('cuda'))
-     #self.tied_embedding_softmax.b = torch.nn.Parameter(torch.tensor(reader.get_tensor('b')).to('cuda'))
-
-      list_of_variables = list(filter(lambda x: 'Adagrad' not in x, reader.get_variable_to_shape_map().keys()))
-
-      str2parameter = lambda x: torch.nn.Parameter(torch.tensor(reader.get_tensor(x)).t().to('cpu'))
-      self.encoder.layernorm.weight = str2parameter('encoder/layer_normalization_'+str(int(num_layers*2))+'/gamma')
-      self.encoder.layernorm.bias = str2parameter('encoder/layer_normalization_'+str(int(num_layers*2))+'/beta')
-      for i in tqdm.tqdm(range(num_layers)):
-        if i==0:
-          layer_variables = sorted(filter(lambda x: 'layer/' in x, list_of_variables))
-        else:
-          layer_variables = sorted(filter(lambda x: 'layer_'+str(i)+'/' in x, list_of_variables))
-
-        current_layer = getattr(self.encoder, 'layer'+str(i))
-
-        current_layer.layernorm1.bias = str2parameter(layer_variables[0])
-        current_layer.layernorm1.weight = str2parameter(layer_variables[1])
-
-        current_layer.layernorm2.bias = str2parameter(layer_variables[2])
-        current_layer.layernorm2.weight = str2parameter(layer_variables[3])
-
-
-        current_layer.multi_head_attention.Wq.bias = str2parameter(layer_variables[4])
-        current_layer.multi_head_attention.Wq.weight = str2parameter(layer_variables[5])
-        current_layer.multi_head_attention.Wk.bias = str2parameter(layer_variables[6])
-        current_layer.multi_head_attention.Wk.weight = str2parameter(layer_variables[7])
-        current_layer.multi_head_attention.Wv.bias = str2parameter(layer_variables[8])
-        current_layer.multi_head_attention.Wv.weight = str2parameter(layer_variables[9])
-        current_layer.multi_head_attention.dense.bias = str2parameter(layer_variables[10])
-        current_layer.multi_head_attention.dense.weight = str2parameter(layer_variables[11])
-        current_layer.ffn[0].bias = str2parameter(layer_variables[12])
-        current_layer.ffn[0].weight = str2parameter(layer_variables[13])
-        current_layer.ffn[2].bias = str2parameter(layer_variables[14])
-        current_layer.ffn[2].weight = str2parameter(layer_variables[15])
-      torch.save({
-        'softmax': self.tied_embedding_softmax.state_dict(),
-        'encoder': self.encoder.state_dict(),
-      }, pytorch_model_hash)
+      print('FATAL ERROR NO CHECKPOINT AVIABLE.')
 
 # initialize ctrl object
 # load checkpoint with args.model_path
@@ -151,6 +128,10 @@ for p in model.parameters():
     p.requires_grad=False
 model.tied_embedding_softmax.w.requires_grad=True
 model.tied_embedding_softmax.b.requires_grad=True
+
+if GPU:
+    model = model.cuda()
+    print('previous checkpoint loaded in GPU')
 
 class Trainer(object):
     def __init__(self, model, warmup_iteration, seq_length, batch_size, num_workers, vocab_size, model_dir, save_iter):
@@ -172,7 +153,7 @@ class Trainer(object):
                                               selectSwiss = 1.0, selectTrembl = 1.0, 
                                               maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.0)
         self.transformPartial = transformProtein(maxSampleLength = seq_length+1,   
-                                              selectSwiss = 0.9, selectTrembl = 0.9,
+                                              selectSwiss = 1.0, selectTrembl = 1.0,
                                               maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.2)
         self.transformNone = transformProtein(maxSampleLength = seq_length+1,   
                                               selectSwiss = 1.0, selectTrembl = 1.0,
@@ -188,8 +169,8 @@ class Trainer(object):
             loss_e = 0.0
             num_e = 0
 
-            for chunknum in range(141):
-                pklpath = '/home/amadani/proteinlm/data/train_test_pkl/'
+            for chunknum in range(10):
+                pklpath = '/data/train_test_pkl/'
                 pklpath = pklpath + 'train' + str(chunknum) + '.p'
                 chunk_dataset = ProteinDataset(pklpath, firstAAidx = self.firstAAidx, transformFull = self.transformFull, 
                                                transformPartial = self.transformPartial, transformNone = self.transformNone)
