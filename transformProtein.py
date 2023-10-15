@@ -50,7 +50,7 @@ class transformProtein:
         """
         if self.noflipseq:
             return seq
-        if np.random.random()>=0.9:
+        if np.random.random()>=0.8:
             seq = seq[::-1]
         return seq
 
@@ -100,6 +100,9 @@ class transformProtein:
             while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
                 encodedSample.append(self.aa_to_ctrl[seq[seq_idx]])
                 seq_idx += 1
+            stop_token = 1
+            if len(encodedSample)<self.maxSampleLength:
+                encodedSample.append(stop_token)
             while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
                 encodedSample.append(self.oneEncoderLength)
             if self.verbose:
@@ -116,6 +119,9 @@ class transformProtein:
                 while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
                     encodedSample.append(self.aa_to_ctrl[seq[seq_idx]])
                     seq_idx += 1
+                stop_token = 1
+                if len(encodedSample)<self.maxSampleLength:
+                    encodedSample.append(stop_token)
                 thePadIndex = len(encodedSample)
                 while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
                     encodedSample.append(self.oneEncoderLength)
@@ -146,7 +152,13 @@ if __name__ == "__main__":
                            selectSwiss = 1.0, selectTrembl = 1.0, seqonly = False)
     i = 0
     for key in train_chunk:
-        print(obj.transformSample(train_chunk[key]))
+        encodedSample, existence, thePadIndex = obj.transformSample(train_chunk[key])
+        print('max sample len', obj.maxSampleLength)
+        print('encodedSample: ', encodedSample)
+        print('existence: ', existence)
+        print('thePadIndex', thePadIndex)
+        print('encodedSample + pad index: ', encodedSample[:thePadIndex])
+        print('encodedSample - pad index: ', encodedSample[thePadIndex:])
         i += 1
         if i == 2:
             break

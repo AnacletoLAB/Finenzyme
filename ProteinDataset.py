@@ -71,7 +71,7 @@ if __name__ == "__main__":
                                                transformPartial = transform_obj, transformNone = transform_obj)
     
     
-    dataloader = DataLoader(dataset, shuffle = True, batch_size = 4,
+    dataloader = DataLoader(dataset, shuffle = True, batch_size = 1,
                                         num_workers = 0, pin_memory = False) 
                 
     for i, (sample, labels, existence, padIndex, begAAindex) in enumerate(dataloader):

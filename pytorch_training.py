@@ -25,9 +25,9 @@ GPU = True
 use_py3 = platform.python_version()[0] == '3'
 
 parser = argparse.ArgumentParser(description='TensorFlow code for generating from CTRL')
-parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt/model_v0.pth',
+parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt_4/model_v',
                                         help='location of training model checkpoint')
-parser.add_argument('--model_path', type=str, default='/ckpt/pretrain_progen_full.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
+parser.add_argument('--model_path', type=str, default='ckpt/pretrain_progen_full.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
 parser.add_argument('--seed', type=int, default=313,
                                         help='random seed for TensorFlow, numpy and PythonHash')
 parser.add_argument('--sequence_len', type=int, default=511,
@@ -36,9 +36,9 @@ parser.add_argument('--num_epochs', type=int, default=4, help='number of epochs 
 parser.add_argument('--num_layers', type=int, default=36, help='number of transfomer layers. used for loading checkpoint')
 parser.add_argument('--batch_size', type=int, default=2, help='batch size for dataloader')
 parser.add_argument('--vocab_loc', type=str, default='mapping_files/vocab.txt', help='vocab location')
-parser.add_argument('--num_workers', type=int, default=0, help='for dataloader')
-parser.add_argument('--warmup_iteration', type=int, default=1, help='LR warmup cutoff')
-parser.add_argument('--save_iter', type=int, default=1, help='save model checkpoint every X iterations')
+parser.add_argument('--num_workers', type=int, default=2, help='for dataloader')
+parser.add_argument('--warmup_iteration', type=int, default=100, help='LR warmup cutoff')
+parser.add_argument('--save_iter', type=int, default=10, help='save model checkpoint every X iterations')
 
 args = parser.parse_args()
 torch.manual_seed(args.seed)
@@ -87,8 +87,8 @@ class CTRLmodel(torch.nn.Module):
     x = self.tied_embedding_softmax(x, embed = False)
     return x
 
-  '''
-    def loadCheckpoint(self, model_path, num_layers):
+
+  def loadCheckpoint(self, model_path, num_layers):
     # pytorch_model_hash = hashlib.md5(model_path.encode('utf-8')).hexdigest()
     if os.path.exists(model_path):
       print('Found PyTorch checkpoint')
@@ -96,23 +96,12 @@ class CTRLmodel(torch.nn.Module):
       checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
       # checkpoint = torch.load(pytorch_model_hash)
       self.tied_embedding_softmax.load_state_dict({
-                'w': checkpoint.pop('tied_embedding_softmax.w', None),
-                'b': checkpoint.pop('tied_embedding_softmax.b', None)
+                'w': checkpoint['tied_embedding_softmax.w'],
+                'b': checkpoint['tied_embedding_softmax.b']
             })
+      checkpoint.pop('tied_embedding_softmax.w', None)
+      checkpoint.pop('tied_embedding_softmax.b', None)
       self.encoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
-    else:
-      print('FATAL ERROR NO CHECKPOINT AVIABLE.')
-  '''
-  
-  def loadCheckpoint(self, model_path, num_layers):
-    pytorch_model_hash = hashlib.md5(model_path.encode('utf-8')).hexdigest()
-
-    if os.path.exists(pytorch_model_hash):
-      print('Found PyTorch checkpoint @', pytorch_model_hash)
-      print('Loading instead of converting from TensorFlow')
-      checkpoint = torch.load(pytorch_model_hash)
-      self.tied_embedding_softmax.load_state_dict(checkpoint['softmax'])
-      self.encoder.load_state_dict(checkpoint['encoder'])
     else:
       print('FATAL ERROR NO CHECKPOINT AVIABLE.')
 
@@ -120,12 +109,13 @@ class CTRLmodel(torch.nn.Module):
 # load checkpoint with args.model_path
 model = CTRLmodel()
 print('model initialized')
+
 model.loadCheckpoint(model_path=args.model_path, num_layers = args.num_layers)
 print('previous checkpoint loaded')
 
 # freeze all weights except embedding
-for p in model.parameters():
-    p.requires_grad=False
+#    p.requires_grad=False
+#for p in model.parameters():
 model.tied_embedding_softmax.w.requires_grad=True
 model.tied_embedding_softmax.b.requires_grad=True
 
@@ -143,7 +133,7 @@ class Trainer(object):
         self.save_iter = save_iter
         self.firstAAidx = self.vocab_size - 26 # Assuming that the pad token is the last token and AAs are at the end
         
-        self.optimizer = torch.optim.Adam(self.model.parameters()) #lr, betas
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr = 0.0001) #lr, betas
         lambdafn = lambda iteration: min(iteration/(warmup_iteration*1.0),1.0)
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lambdafn)
         
@@ -170,14 +160,20 @@ class Trainer(object):
             num_e = 0
 
             for chunknum in range(10):
-                pklpath = '/data/train_test_pkl/'
+                pklpath = 'data/train_test_pkl/'
                 pklpath = pklpath + 'train' + str(chunknum) + '.p'
                 chunk_dataset = ProteinDataset(pklpath, firstAAidx = self.firstAAidx, transformFull = self.transformFull, 
                                                transformPartial = self.transformPartial, transformNone = self.transformNone)
                 dataloader = DataLoader(chunk_dataset, shuffle = True, batch_size = self.batch_size,
                                         num_workers = self.num_workers, pin_memory = False) #TODO pinmem?
-                
+        
                 for i, (sample, labels, existence, padIndex, begAAindex) in enumerate(dataloader):
+                    if GPU:
+                        sample = sample.cuda()
+                        labels = labels.cuda()
+                        padIndex = padIndex.cuda()
+                        begAAindex = begAAindex.cuda()
+                        existence = existence.cuda()
                     self.optimizer.zero_grad()
                     output = self.model(sample)
                     #pdb.set_trace()
@@ -190,17 +186,32 @@ class Trainer(object):
                     loss_e += loss.item()
                     num_e += sample.shape[0]
                     iter_num += 1
-                    self.writer.add_scalar('Loss_iteration',loss.item(),iter_num)
+                    self.writer.add_scalar('Loss_iteration',loss.item(),iter_num)  
 
-                    if (i+1)%self.save_iter==0:
+                print('epoch: ', epoch)
+                print('chunknum: ', chunknum)
+                print('self.save_iter: ', self.save_iter)
+                if epoch == 2:
+                    if (chunknum+1)%self.save_iter==0:
+                        print('Saving checkpoint..')
                         torch.save({'epoch': epoch, 'chunknum': chunknum, 'iteration':i,
                                     'model_state_dict': self.model.state_dict(),
                                     'optimizer_state_dict': self.optimizer.state_dict(),
                                     'loss': loss,
-                                   }, self.model_dir)
+                                   }, (self.model_dir + '_epoch' + str(epoch+1) + '_chunk' + str(chunknum+1) + '.pth'))
                 loss_e/=num_e
-            #print(loss_e)
-            #self.writer.add_scalar('Loss_epoch',loss_e, epoch)
+                print('loss_e: ', loss_e)
+            print('epoch: ', epoch)
+            print('loss_e: ', loss_e)
+            self.writer.add_scalar('Loss_epoch',loss_e, epoch)
+        print('Training ended. saving last checkpoint')
+        print('Saving last checkpoint..')
+        torch.save({'epoch': epoch, 'chunknum': chunknum, 'iteration':i,
+                    'model_state_dict': self.model.state_dict(),
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'loss': loss,
+                    }, 'ckpt/training_ckpt_4/model_v0Last.pth')
+            
 
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,
                    batch_size=args.batch_size, num_workers=args.num_workers, vocab_size=vocab_size,
