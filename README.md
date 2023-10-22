@@ -7,7 +7,7 @@ language modeling for protein sequences
 3. To download test predictions: `gdown https://drive.google.com/drive/folders/1xgR0dj2iqgqKjZQ3KiDSNNVojgkFMsQ_?usp=share_link -O results -- folder`
 
 ## Training Command
-Currently you can train by running `TODO`. 
+Currently you can train by running `python pytorch_training.py`. 
 
 ## Pretraining Vocabulary
 The categories for lines in `vocab.txt`:
@@ -21,3 +21,5 @@ Assumptions:
 - there are k clusters replacing ctrl codes [0,k-1]
 - there is a stop token replacing ctrl code k
 - the sample length is 511. all extra tokens are replaced with the original pad token 129406
+
+In our case we trained specifically on Phage Lysozyme, it's ProGen code is 0, and the stop token is 1.
