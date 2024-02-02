@@ -22,3 +22,6 @@ Assumptions:
 - the sample length is 511. all extra tokens are replaced with the original pad token 129406
 
 In our case we trained specifically on Phage Lysozyme, it's ProGen code is 0, and the stop token is 1.
+
+## Galaxy workflow
+The Galaxy workflow to perform analisys on the generated sequences is aviable at this link: `https://usegalaxy.eu/u/marco_nino/w/blast-on-generated-sequences-clustering-on-generated-sequences-original-msa-on-clustering-output-phylogenetic-tree-construction`
