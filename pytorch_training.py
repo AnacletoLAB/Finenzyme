@@ -11,8 +11,6 @@ import hashlib
 import pytorch_transformer
 import re
 import argparse
-import tensorflow as tf
-from tensorflow.python import pywrap_tensorflow
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from transformProtein import transformProtein
@@ -25,9 +23,9 @@ GPU = True
 use_py3 = platform.python_version()[0] == '3'
 
 parser = argparse.ArgumentParser(description='TensorFlow code for generating from CTRL')
-parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt_4/model_v',
+parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt_5/model_v',
                                         help='location of training model checkpoint')
-parser.add_argument('--model_path', type=str, default='ckpt/pretrain_progen_full.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
+parser.add_argument('--model_path', type=str, default='ckpt/training_ckpt_4/model_only_state_dict_v0Last_lr0001.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
 parser.add_argument('--seed', type=int, default=313,
                                         help='random seed for TensorFlow, numpy and PythonHash')
 parser.add_argument('--sequence_len', type=int, default=511,
@@ -104,6 +102,8 @@ class CTRLmodel(torch.nn.Module):
       self.encoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
     else:
       print('FATAL ERROR NO CHECKPOINT AVIABLE.')
+      print(model_path)
+      raise Exception
 
 # initialize ctrl object
 # load checkpoint with args.model_path
@@ -210,7 +210,7 @@ class Trainer(object):
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss': loss,
-                    }, 'ckpt/training_ckpt_4/model_v0Last.pth')
+                    }, 'ckpt/training_ckpt_4/model_TEST.pth')
             
 
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,
