@@ -7,8 +7,6 @@ import numpy as np
 import platform
 import re
 import argparse
-import tensorflow as tf
-from tensorflow.python import pywrap_tensorflow
 
 
 def angle_defn(pos, i, d_model_size):
