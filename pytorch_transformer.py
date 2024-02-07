@@ -8,10 +8,8 @@ import platform
 import re
 import math
 import argparse
-import tensorflow as tf
-GPU = True
+GPU = torch.cuda.is_available()
 torch.set_default_dtype(torch.float32)
-from tensorflow.python import pywrap_tensorflow
 
 def angle_defn(pos, i, d_model_size):
   angle_rates = 1 / np.power(10000, (2 * (i//2)) / np.float32(d_model_size))
