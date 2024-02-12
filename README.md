@@ -7,6 +7,7 @@ language modeling for protein sequences
 3. To download the pre-trained general model: `gdown https://drive.google.com/drive/folders/1_odDCoRF35LmdTZH-bS6JICiedcqIlRs?usp=share_link -O ckpt --folder`
 4. To download test predictions of the general model: `gdown https://drive.google.com/drive/folders/1xgR0dj2iqgqKjZQ3KiDSNNVojgkFMsQ_?usp=share_link -O results -- folder`
 5. To download test predictions of the Lysozyme fine-tuned model: `gdown https://drive.google.com/drive/folders/1g9WBp6mnU_K4guD5jFx6v0Qb2HgRmyt2?usp=share_link -O results_after_Fine_tuning --folder`
+6. To download the fine-tuned model on Phage lysozymes: `https://drive.google.com/file/d/17-_ewwXF3bTvchDh9PnB4KSxijvLOulj/view?usp=share_link`
 
 
 ## Pretraining Vocabulary
