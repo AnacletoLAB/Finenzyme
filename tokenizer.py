@@ -25,6 +25,4 @@ class Tokenizer:
         self.ctrl_idx_to_aa = flipdict(self.aa_to_ctrl_idx)
         self.ctrl_idx_to_kw = flipdict(self.kw_to_ctrl_idx)
         self.ctrl_idx_to_taxa = flipdict(self.taxa_to_ctrl_idx)
-
-    def tokenize(self):
-        pass
+        

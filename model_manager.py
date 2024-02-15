@@ -18,8 +18,10 @@ class VocabularyManager:
         self.vocab_size = len(self.vocab) 
 
 class TiedEmbeddingSoftmax(torch.nn.Module):
-    def __init__(self, vocab_size=129407, embedding_size=1280, **kwargs):
+    def __init__(self, embedding_size=1280, **kwargs):
         super(TiedEmbeddingSoftmax, self).__init__()
+        vocab_manager = VocabularyManager()
+        vocab_size = vocab_manager.vocab_size
         self.w = torch.nn.Parameter(torch.normal(0., 1e-2, size=(vocab_size, embedding_size)))
         self.b = torch.nn.Parameter(torch.zeros(vocab_size))
 
