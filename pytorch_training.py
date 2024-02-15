@@ -1,8 +1,10 @@
 from __future__ import print_function
 from __future__ import division
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import sys
 import torch
-import os
 import tqdm
 import pdb
 import numpy as np
