@@ -41,7 +41,7 @@ class GeneratorManager:
         def predict_with_stop(inputs):
             with torch.no_grad():
                 inputs = torch.tensor(inputs)
-                if GPU:
+                if torch.cuda.is_available():
                     inputs = inputs.cuda()            
                 output = model(inputs)
                 stop_token = output[:, :, 1] # the stop token logits
