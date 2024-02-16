@@ -48,7 +48,6 @@ class CTRLmodel(torch.nn.Module):
     def loadCheckpoint(self, model_path, num_layers = 36):
         if os.path.exists(model_path):
             print('Found PyTorch checkpoint at ', model_path)
-            print('Loading instead of converting from TensorFlow')
             checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
             self.tied_embedding_softmax.load_state_dict({
                 'w': checkpoint.pop('tied_embedding_softmax.w', None),

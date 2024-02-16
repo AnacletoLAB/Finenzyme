@@ -7,17 +7,47 @@ import torch
 import numpy as np
 from tokenizer import Tokenizer
 from model_manager import VocabularyManager
+from model_manager import CTRLmodel
 
 class GeneratorManager:
-    def __init__(self, predict_fn, penalty=0, topk=1, top_p=0.5, temperature=1):
+    def __init__(self, model_path, penalty=0, topk=1, top_p=0.5, temperature=1):
+        # let's load our model in memory
+        model = CTRLmodel()
+        reader = model.loadCheckpoint(model_path=model_path)
+        if torch.cuda.is_available():
+            model = model.cuda()
+            print('GPU aviable. Previous checkpoint loaded in GPU')
+        else: 
+            print('GPU not aviable. Previous checkpoint loaded in CPU')
+        self.model = model
         vocab_manager = VocabularyManager()
         self.vocab_size = vocab_manager.vocab_size
-        self.predict_fn = predict_fn
         self.penalty = penalty
         self.topk = topk
         self.top_p = top_p
         self.temperature = temperature
         self.tokenizer = Tokenizer()
+        def predict(inputs):
+            with torch.no_grad():
+                inputs = torch.tensor(inputs)
+                if torch.cuda.is_available():
+                    inputs = inputs.cuda()
+                output = self.model(inputs)
+                output = output[:,:,-26:-1] # remove non-AA token logits
+                return output
+                
+        self.predict = predict
+
+        def predict_with_stop(inputs):
+            with torch.no_grad():
+                inputs = torch.tensor(inputs)
+                if GPU:
+                    inputs = inputs.cuda()            
+                output = model(inputs)
+                stop_token = output[:, :, 1] # the stop token logits
+                output = output[:,:,-26:-1] # remove non-AA token logits
+                return output, stop_token
+        self.predict_with_stop = predict_with_stop
         
     def teacher_forcing_generation(self, input_sequence, tax_lineage):
         res = ""
@@ -32,7 +62,7 @@ class GeneratorManager:
             padded_text = text + [0] * (generate_num - len(text))
             tokens_generated = np.tile(padded_text, (1,1))
             for token in range(len(text)-1, generate_num-1):
-                prompt_logits = self.predict_fn(tokens_generated[:, :seq_length]).squeeze()
+                prompt_logits = self.predict(tokens_generated[:, :seq_length]).squeeze()
                 _token = token if token < seq_length else -1
                 prompt_logits = prompt_logits.cpu().detach().numpy()
                 if self.penalty>0:
@@ -89,7 +119,7 @@ class GeneratorManager:
         padded_text = text + [0] * (generate_num - len(text))
         tokens_generated = np.tile(padded_text, (1,1))
         for token in range(len(text)-1, generate_num-1):
-            prompt_logits = self.predict_fn(tokens_generated[:, :seq_length]).squeeze()
+            prompt_logits = self.predict(tokens_generated[:, :seq_length]).squeeze()
             _token = token if token < seq_length else -1
             prompt_logits = prompt_logits.cpu().detach().numpy()
             if self.penalty>0:
@@ -129,7 +159,7 @@ class GeneratorManager:
         tokens_generated = tokens_generated[0][len(seed_seq) + key_len:]
         tokens_generated = ''.join([self.tokenizer.ctrl_idx_to_aa[c] for c in tokens_generated])
         return tokens_generated, tokens_prob, n
-
+    
     def generation_complete_sequence(self, input_sequence, after_n, tax_lineage):
         res = ""
         res_stopped = []
@@ -148,7 +178,7 @@ class GeneratorManager:
         for token in range(len(text)-1, generate_num-1):
             
             # prediction
-            prompt_logits, stop_token = self.predict_fn(tokens_generated[:, :seq_length])
+            prompt_logits, stop_token = self.predict_with_stop(tokens_generated[:, :seq_length])
             prompt_logits = prompt_logits.squeeze()  / (self.temperature if self.temperature>0 else 1.)
             stop_token = stop_token.squeeze()  / (self.temperature if self.temperature>0 else 1.)
             
@@ -204,68 +234,3 @@ class GeneratorManager:
         tokens_generated = tokens_generated[0][len(seed_seq) + key_len:]
         tokens_generated = ''.join([self.tokenizer.ctrl_idx_to_aa[c] for c in tokens_generated])
         return tokens_generated, res_stopped
-
-'''def generation_complete_sequence(input_sequence, after_n, tax_lineage, top_p):
-    res = ""
-    res_stopped = []
-    # tokens_prob = []
-    key_len = len(tax_lineage) # len(kw_lineage+tax_lineage)
-    i = after_n # if we have a sequence of amminoacids in input, we can add some in input as seed sequence
-    iteration_input_prefix = input_sequence[:i]
-    seed_seq = [aa_to_ctrl_idx[ii] for ii in iteration_input_prefix]
-    generate_num = 511
-    seq_length = min(generate_num, 511)
-    text = tax_lineage + seed_seq # tax_lineage + kw_lineage + seed_seq
-    padded_text = text + [0] * (generate_num - len(text))
-    tokens_generated = np.tile(padded_text, (1,1))
-    for token in range(len(text)-1, generate_num-1):
-        # prediction
-        prompt_logits, stop_token = predict_fn(tokens_generated[:, :seq_length])
-        prompt_logits = prompt_logits.squeeze()  / (temperature if temperature>0 else 1.)
-        stop_token = stop_token.squeeze()  / (temperature if temperature>0 else 1.)
-        _token = token if token < seq_length else -1
-        prompt_logits = prompt_logits.cpu().detach().numpy()
-        stop_token = stop_token.cpu().detach().numpy()
-        # penalty
-        if (penalty>0) and (token >= key_len + 3):
-            penalized_so_far = set()
-            for _ in range(token-3,token+1):
-                generated_token = tokens_generated[0][_] - (vocab_size-26) # added
-                if generated_token in penalized_so_far:
-                    continue
-                penalized_so_far.add(generated_token)
-                prompt_logits[_token][generated_token] /= penalty  
-        # compute probabilities from logits
-        prompt_probs = np.exp(prompt_logits[_token])
-        prompt_probs = prompt_probs / sum(prompt_probs)
-        # ESTRARRE TOKEN 1: the stop token, softmax con le probabilità degli amminoacidi
-        logits_and_stop = np.concatenate((prompt_logits[_token], [stop_token[_token]]))
-        logits_and_stop_prob = np.exp(logits_and_stop)
-        logits_and_stop_prob = logits_and_stop_prob / sum(logits_and_stop_prob)
-        if logits_and_stop_prob[-1] >= top_p:
-            tokens_generated_stopped = tokens_generated[0][len(seed_seq) + key_len:_token + 1]
-            tokens_generated_stopped = ''.join([ctrl_idx_to_aa[c] for c in tokens_generated_stopped])
-            res_stopped.append(tokens_generated_stopped)
-        pruned_list = np.argsort(prompt_probs)[::-1]
-        # tokens_prob.append([prompt_probs.tolist()])
-        if top_p==1:
-            idx = pruned_list[0]
-        else:
-            # Sort the probabilities
-            sorted_probs, sorted_indices = torch.sort(torch.tensor(prompt_probs), descending=True)
-            # Calculate cumulative probabilities
-            cum_probs = torch.cumsum(sorted_probs, dim=0)
-            # Get the set of tokens whose cumulative probability is less than or equal to p (e.g., 0.9)
-            valid_indices = sorted_indices[cum_probs <= top_p]
-            # If no token's cumulative probability is less than the threshold, just select the top token
-            if valid_indices.size(0) == 0:
-                valid_indices = sorted_indices[:1]
-            # Sample from the valid indices
-            idx = valid_indices[torch.randint(0, valid_indices.size(0), (1,))].item()
-        # assign the token for generation
-        idx += (vocab_size-26) # added to convert 0 AA to original ctrl idx
-        tokens_generated[0][token+1] = idx
-    tokens_generated = tokens_generated[0][len(seed_seq) + key_len:]
-    tokens_generated = ''.join([ctrl_idx_to_aa[c] for c in tokens_generated])
-    return tokens_generated, res_stopped
-'''
