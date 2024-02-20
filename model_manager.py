@@ -36,12 +36,12 @@ class CTRLmodel(torch.nn.Module):
     def __init__(self):
         super(CTRLmodel,self).__init__()
         self.tied_embedding_softmax = TiedEmbeddingSoftmax()
-        self.encoder = pytorch_transformer.Encoder()
+        self.decoder = pytorch_transformer.Decoder()
 
     def forward(self, inputs):
         with autocast(enabled=False):
             x = self.tied_embedding_softmax(inputs, embed=True)
-            x = self.encoder(x)
+            x = self.decoder(x)
             x = self.tied_embedding_softmax(x, embed=False)
         return x
 
@@ -53,7 +53,10 @@ class CTRLmodel(torch.nn.Module):
                 'w': checkpoint.pop('tied_embedding_softmax.w', None),
                 'b': checkpoint.pop('tied_embedding_softmax.b', None)
             })
-            self.encoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
+            try:
+                self.decoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
+            except Exception:
+                self.decoder.load_state_dict({key.replace("decoder.", ""): value for key, value in checkpoint.items()})
         else:
             print('Could not find PyTorch checkpoint')
             sys.exit()

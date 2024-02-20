@@ -42,7 +42,7 @@ class transformProtein:
                 self.taxa_to_lineage = pickle.load(handle)
     
             self.oneEncoderLength = max(max(self.kw_to_ctrl.values()),max(self.taxa_to_ctrl.values()),max(self.aa_to_ctrl.values())) + 1
-            print('Using one unified encoder to represent protein sample with length', self.oneEncoderLength)
+            #print('Using one unified encoder to represent protein sample with length', self.oneEncoderLength)
     
     def transformSeq(self, seq):
         """

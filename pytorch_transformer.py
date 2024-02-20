@@ -80,9 +80,9 @@ def point_wise_feed_forward_network(d_model_size, dff):
   return torch.nn.Sequential(torch.nn.Linear(d_model_size, dff), torch.nn.ReLU(), torch.nn.Linear(dff, d_model_size))
 
 
-class EncoderLayer(torch.nn.Module):
+class DencoderLayer(torch.nn.Module):
   def __init__(self, d_model_size, num_heads, dff, rate=0.1):
-    super(EncoderLayer, self).__init__()
+    super(DencoderLayer, self).__init__()
 
     self.multi_head_attention = MultiHeadAttention(d_model_size, num_heads)
     self.ffn = point_wise_feed_forward_network(d_model_size, dff)
@@ -108,10 +108,10 @@ class EncoderLayer(torch.nn.Module):
 
 # for oct28 and nov07 ckpt-> num_layers=24, d_model_size=1280, num_heads=16, dff=5120,
 # for ctrl_36 -> num_layers=36, d_model_size=1280, num_heads=16, dff=8192, input_vocab_size=50000,rate=0.1,
-class Encoder(torch.nn.Module):
+class Decoder(torch.nn.Module):
   def __init__(self, num_layers=36, d_model_size=1280, num_heads=16, dff=8192, input_vocab_size=50000,
                rate=0.1, **kwargs):
-    super(Encoder, self).__init__()
+    super(Decoder, self).__init__()
 
     self.d_model_size = d_model_size
     print("MODEL SIZE: ")
@@ -124,7 +124,7 @@ class Encoder(torch.nn.Module):
     
 
     for i in range(num_layers):
-      setattr(self, "layer%i" % i, EncoderLayer(d_model_size, num_heads, dff, rate))
+      setattr(self, "layer%i" % i, DencoderLayer(d_model_size, num_heads, dff, rate))
     
     self.layernorm = torch.nn.LayerNorm(d_model_size, eps=1e-6)  
     self.dropout = torch.nn.Dropout(rate)

@@ -1,7 +1,8 @@
 '''
-This module implemets ProGen generation as a classifier, comprising two main classes:
+This module implemets ProGen generation as a classifier, comprising three main classes:
 1) teacher forcing generation: given a sequence, it computes the resulting generation for eache position in the sequence given all the previous (real) positions. (in addition the probabilities for each amino acid predicted)
 2) after-n generation: given a sequence, the model takes the first n aminoacids as prefix and generates until the length of the actual (real) protein in input to the model. (in addition the probabilities for each amino acid predicted)
+3) generation_complete_sequence: generates sequences using a fine-tuned model. Stop keyword usage.
 '''
 import torch
 import numpy as np
@@ -43,7 +44,7 @@ class GeneratorManager:
                 inputs = torch.tensor(inputs)
                 if torch.cuda.is_available():
                     inputs = inputs.cuda()            
-                output = model(inputs)
+                output = self.model(inputs)
                 stop_token = output[:, :, 1] # the stop token logits
                 output = output[:,:,-26:-1] # remove non-AA token logits
                 return output, stop_token

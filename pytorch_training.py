@@ -1,30 +1,19 @@
-from __future__ import print_function
-from __future__ import division
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
-import sys
 import torch
-import tqdm
-import pdb
 import numpy as np
-import platform
-import hashlib
-import pytorch_transformer
-import re
+import pickle
 import argparse
-import torch.nn.functional as F
+#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+#os.environ["CUDA_VISIBLE_DEVICES"]="1"
 from torch.utils.tensorboard import SummaryWriter
+from model_manager import CTRLmodel
+from model_manager import VocabularyManager
 from transformProtein import transformProtein
 from ProteinDataset import ProteinDataset
 from torch.utils.data import Dataset, DataLoader
-import pickle
 
-GPU = True
 
-use_py3 = platform.python_version()[0] == '3'
-
-parser = argparse.ArgumentParser(description='TensorFlow code for generating from CTRL')
+parser = argparse.ArgumentParser(description='Code to train ProGen')
 parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt_5/model_v',
                                         help='location of training model checkpoint')
 parser.add_argument('--model_path', type=str, default='ckpt/training_ckpt_4/model_only_state_dict_v0Last_lr0001.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
@@ -33,9 +22,7 @@ parser.add_argument('--seed', type=int, default=313,
 parser.add_argument('--sequence_len', type=int, default=511,
                                         help='sequence len of model being fine-tuned')
 parser.add_argument('--num_epochs', type=int, default=4, help='number of epochs to train for')
-parser.add_argument('--num_layers', type=int, default=36, help='number of transfomer layers. used for loading checkpoint')
 parser.add_argument('--batch_size', type=int, default=2, help='batch size for dataloader')
-parser.add_argument('--vocab_loc', type=str, default='mapping_files/vocab.txt', help='vocab location')
 parser.add_argument('--num_workers', type=int, default=2, help='for dataloader')
 parser.add_argument('--warmup_iteration', type=int, default=100, help='LR warmup cutoff')
 parser.add_argument('--save_iter', type=int, default=10, help='save model checkpoint every X iterations')
@@ -44,86 +31,25 @@ args = parser.parse_args()
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
 
-# load the vocabulary from file
-vocab = open(args.vocab_loc).readlines() if not use_py3 else open(args.vocab_loc, encoding='utf-8').read().split('\n')[:-1]
-vocab = list(map(lambda x: x.split(' ')[0], vocab))
-# length of the vocabulary
-vocab_size = len(vocab)
-print('-----vocab size',vocab_size,'------')
-
-# define the numericalization map
-# idx2word maps the numericalized ID to the word
-# word2idx maps the word to the numericalized ID
-#word2idx = {u:i for i, u in enumerate(vocab)}
-#idx2word = np.array(vocab)
-
+vocab_manager = VocabularyManager()
 # sequence length to use for transfomer
 seq_length = args.sequence_len
 
-embedding_dim = 1280
-
-class TiedEmbeddingSoftmax(torch.nn.Module):
-
-  def __init__(self, vocab_size=vocab_size, embedding_size=embedding_dim, **kwargs):
-    super(TiedEmbeddingSoftmax, self).__init__()
-    self.w = torch.nn.Parameter(torch.normal(0., 1e-2, size=(vocab_size, embedding_size)))
-    self.b = torch.nn.Parameter(torch.zeros(vocab_size))
-
-  def forward(self, inputs, embed=True):
-    if embed:
-      return torch.nn.functional.embedding(inputs, self.w)
-    else:
-      return torch.tensordot(inputs, self.w.t(), 1) + self.b
-
-class CTRLmodel(torch.nn.Module):
-  def __init__(self):
-    super(CTRLmodel,self).__init__()
-    self.tied_embedding_softmax = TiedEmbeddingSoftmax()
-    self.encoder = pytorch_transformer.Encoder()
-
-  def forward(self, inputs):
-    x = self.tied_embedding_softmax(inputs, embed = True)
-    x = self.encoder(x)
-    x = self.tied_embedding_softmax(x, embed = False)
-    return x
-
-
-  def loadCheckpoint(self, model_path, num_layers):
-    # pytorch_model_hash = hashlib.md5(model_path.encode('utf-8')).hexdigest()
-    if os.path.exists(model_path):
-      print('Found PyTorch checkpoint')
-      print('Loading checkpoint')
-      checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
-      # checkpoint = torch.load(pytorch_model_hash)
-      self.tied_embedding_softmax.load_state_dict({
-                'w': checkpoint['tied_embedding_softmax.w'],
-                'b': checkpoint['tied_embedding_softmax.b']
-            })
-      checkpoint.pop('tied_embedding_softmax.w', None)
-      checkpoint.pop('tied_embedding_softmax.b', None)
-      self.encoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
-    else:
-      print('FATAL ERROR NO CHECKPOINT AVIABLE.')
-      print(model_path)
-      raise Exception
-
-# initialize ctrl object
-# load checkpoint with args.model_path
+# load the model
 model = CTRLmodel()
-print('model initialized')
-
-model.loadCheckpoint(model_path=args.model_path, num_layers = args.num_layers)
-print('previous checkpoint loaded')
+model.loadCheckpoint(model_path=args.model_path)
 
 # freeze all weights except embedding
+# for p in model.parameters():
 #    p.requires_grad=False
-#for p in model.parameters():
 model.tied_embedding_softmax.w.requires_grad=True
 model.tied_embedding_softmax.b.requires_grad=True
 
-if GPU:
+if torch.cuda.is_available():
     model = model.cuda()
     print('previous checkpoint loaded in GPU')
+else:
+    print('previous checkpoint loaded')
 
 class Trainer(object):
     def __init__(self, model, warmup_iteration, seq_length, batch_size, num_workers, vocab_size, model_dir, save_iter):
@@ -155,7 +81,7 @@ class Trainer(object):
 
     def train(self, num_epochs):
         self.model.train()
-
+        GPU = torch.cuda.is_available()
         iter_num = 0
         for epoch in range(num_epochs):
             loss_e = 0.0
@@ -213,13 +139,10 @@ class Trainer(object):
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss': loss,
                     }, 'ckpt/training_ckpt_4/model_TEST.pth')
-            
+
 
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,
-                   batch_size=args.batch_size, num_workers=args.num_workers, vocab_size=vocab_size,
+                   batch_size=args.batch_size, num_workers=args.num_workers, vocab_size=vocab_manager.vocab_size,
                    model_dir = args.model_dir, save_iter=args.save_iter)
 print('begin training...')
 training.train(args.num_epochs)
-
-
-
