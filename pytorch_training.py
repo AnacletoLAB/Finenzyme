@@ -14,9 +14,9 @@ from torch.utils.data import Dataset, DataLoader
 
 
 parser = argparse.ArgumentParser(description='Code to train ProGen')
-parser.add_argument('--model_dir', type =str, default='ckpt/training_ckpt_5/model_v',
+parser.add_argument('--model_dir', type =str, default='ckpt/',
                                         help='location of training model checkpoint')
-parser.add_argument('--model_path', type=str, default='ckpt/training_ckpt_4/model_only_state_dict_v0Last_lr0001.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
+parser.add_argument('--model_path', type=str, default='ckpt/pretrain_progen_full.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
 parser.add_argument('--seed', type=int, default=313,
                                         help='random seed for TensorFlow, numpy and PythonHash')
 parser.add_argument('--sequence_len', type=int, default=511,
@@ -79,7 +79,7 @@ class Trainer(object):
             num_e = 0
 
             for chunknum in range(10):
-                pklpath = 'data/train_test_pkl/'
+                pklpath = 'data_halogenase/chunks/'
                 pklpath = pklpath + 'train' + str(chunknum) + '.p'
                 chunk_dataset = ProteinDataset(pklpath, firstAAidx = self.firstAAidx, transformFull = self.transformFull)
                 dataloader = DataLoader(chunk_dataset, shuffle = True, batch_size = self.batch_size,
@@ -128,7 +128,7 @@ class Trainer(object):
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'loss': loss,
-                    }, 'ckpt/training_ckpt_4/model_TEST.pth')
+                    }, 'ckpt/model_TEST.pth')
 
 
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,

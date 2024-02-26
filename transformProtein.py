@@ -65,7 +65,6 @@ class transformProtein:
         existence = 1
         if (not self.seqonly):
             kws = self.transformKwSet(proteinDict['kw'], drop = self.dropRate)
-            print(kws)
             if proteinDict['ex'] in [4, 5]:
                 existence += 1
             if proteinDict['rev']:
