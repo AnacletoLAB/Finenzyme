@@ -6,13 +6,11 @@ import pickle
 
 class ProteinDataset(Dataset):
 
-    def __init__(self, pklpath, firstAAidx, transformFull=None, transformPartial=None, transformNone=None, evalTransform=None):
+    def __init__(self, pklpath, firstAAidx, transformFull=None, evalTransform=None):
         with open(pklpath, 'rb') as handle:
             self.data_chunk = pickle.load(handle)
         self.uids = list(self.data_chunk.keys())
         self.transformFull = transformFull
-        self.transformPartial = transformPartial
-        self.transformNone = transformNone
         self.evalTransform = evalTransform
         self.firstAAidx = firstAAidx
         
@@ -24,16 +22,11 @@ class ProteinDataset(Dataset):
 
     def __getitem__(self, idx):
         if self.trainmode:
-            randnum = np.random.random()
-            transformObj = self.transformNone
-            if randnum>0.25:
-                transformObj = self.transformFull
-            elif randnum>0.1:
-                transformObj = self.transformPartial
+            transformObj = self.transformFull
         else:
             transformObj = self.evalTransform
 
-        sample_arr, existence, padIndex = transformObj.transformSample( self.data_chunk[self.uids[idx]] )
+        sample_arr, existence, padIndex = transformObj.transformSample(self.data_chunk[self.uids[idx]])
         sample_arr = np.array(sample_arr)
         inputs = sample_arr[:-1]
         outputs = sample_arr[1:]
@@ -55,9 +48,7 @@ if __name__ == "__main__":
     pklpath = 'data/train_test_pkl/train0.p'
     
     # instance of the transformProtein class
-    transform_obj = transformProtein(maxSampleLength = 511+1, 
-                                              selectSwiss = 1.0, selectTrembl = 1.0, 
-                                              maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.0)
+    transform_obj = transformProtein(maxSampleLength = 511+1, maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.0)
     
     # load the vocabulary from file
     vocab = open('mapping_files/vocab.txt').readlines()
@@ -67,8 +58,7 @@ if __name__ == "__main__":
     firstAAidx = vocab_size - 26
     
     # Create an instance of the ProteinDataset class    
-    dataset = ProteinDataset(pklpath, firstAAidx = firstAAidx, transformFull = transform_obj, 
-                                               transformPartial = transform_obj, transformNone = transform_obj)
+    dataset = ProteinDataset(pklpath, firstAAidx = firstAAidx, transformFull = transform_obj)
     
     
     dataloader = DataLoader(dataset, shuffle = True, batch_size = 1,

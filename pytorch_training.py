@@ -67,16 +67,7 @@ class Trainer(object):
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.vocab_size-1, reduction='none')
         
-        self.transformFull = transformProtein(maxSampleLength = seq_length+1, 
-                                              selectSwiss = 1.0, selectTrembl = 1.0, 
-                                              maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.0)
-        self.transformPartial = transformProtein(maxSampleLength = seq_length+1,   
-                                              selectSwiss = 1.0, selectTrembl = 1.0,
-                                              maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.2)
-        self.transformNone = transformProtein(maxSampleLength = seq_length+1,   
-                                              selectSwiss = 1.0, selectTrembl = 1.0,
-                                              maxTaxaPerSample = 0, maxKwPerSample = 0, dropRate = 1.0)
-        
+        self.transformFull = transformProtein(maxSampleLength = seq_length+1)
         self.writer = SummaryWriter()
 
     def train(self, num_epochs):
@@ -90,8 +81,7 @@ class Trainer(object):
             for chunknum in range(10):
                 pklpath = 'data/train_test_pkl/'
                 pklpath = pklpath + 'train' + str(chunknum) + '.p'
-                chunk_dataset = ProteinDataset(pklpath, firstAAidx = self.firstAAidx, transformFull = self.transformFull, 
-                                               transformPartial = self.transformPartial, transformNone = self.transformNone)
+                chunk_dataset = ProteinDataset(pklpath, firstAAidx = self.firstAAidx, transformFull = self.transformFull)
                 dataloader = DataLoader(chunk_dataset, shuffle = True, batch_size = self.batch_size,
                                         num_workers = self.num_workers, pin_memory = False) #TODO pinmem?
         

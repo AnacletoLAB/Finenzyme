@@ -4,44 +4,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import random
+from tokenizer import Tokenizer
 
 class transformProtein:
-    def __init__(self, mapfold = 'mapping_files/', maxSampleLength = 512, selectSwiss = 1.0,
-                 selectTrembl = 1.0, verbose = False, maxTaxaPerSample = 3, 
+    def __init__(self, mapfold = 'mapping_files/', maxSampleLength = 512,
+                 verbose = False, maxTaxaPerSample = 3, 
                  maxKwPerSample = 5, dropRate = 0.0, seqonly = False, noflipseq = False):
 
         self.maxSampleLength = maxSampleLength
-        self.selectSwiss = selectSwiss
-        self.selectTrembl = selectTrembl
         self.verbose = verbose
         self.maxTaxaPerSample = maxTaxaPerSample
         self.maxKwPerSample = maxKwPerSample
         self.dropRate = dropRate
         self.seqonly = seqonly
         self.noflipseq = noflipseq
+        self.tokenizer = Tokenizer()
 
         if self.seqonly:
-            with open(os.path.join(mapfold,'aa_to_ctrl_idx_seqonly.p'),'rb') as handle:
-                self.aa_to_ctrl = pickle.load(handle)
             print('Sequence only - no CTRL codes')
-            self.oneEncoderLength = max(self.aa_to_ctrl.values())+1
+            self.oneEncoderLength = max(self.tokenizer.aa_to_ctrl_idx.values())+1
         else:
-            with open(os.path.join(mapfold,'kw_to_ctrl_idx.p'),'rb') as handle:
-                self.kw_to_ctrl = pickle.load(handle)
-            with open(os.path.join(mapfold,'taxa_to_ctrl_idx.p'),'rb') as handle:
-                self.taxa_to_ctrl = pickle.load(handle)
-            with open(os.path.join(mapfold,'aa_to_ctrl_idx.p'),'rb') as handle:
-                self.aa_to_ctrl = pickle.load(handle)
-            with open(os.path.join(mapfold,'taxa_to_parents.p'),'rb') as handle: # TODO: remove
-                self.taxa_to_parents = pickle.load(handle)
-            with open(os.path.join(mapfold,'kw_to_parents.p'),'rb') as handle: # TODO: remove
-                self.kw_to_parents = pickle.load(handle)
-            with open(os.path.join(mapfold,'kw_to_lineage.p'),'rb') as handle:
-                self.kw_to_lineage = pickle.load(handle)
-            with open(os.path.join(mapfold,'taxa_to_lineage.p'),'rb') as handle:
-                self.taxa_to_lineage = pickle.load(handle)
-    
-            self.oneEncoderLength = max(max(self.kw_to_ctrl.values()),max(self.taxa_to_ctrl.values()),max(self.aa_to_ctrl.values())) + 1
+            self.oneEncoderLength = max(max(self.tokenizer.kw_to_ctrl_idx.values()),max(self.tokenizer.taxa_to_ctrl_idx.values()),max(self.tokenizer.aa_to_ctrl_idx.values())) + 1
             #print('Using one unified encoder to represent protein sample with length', self.oneEncoderLength)
     
     def transformSeq(self, seq):
@@ -58,7 +41,7 @@ class transformProtein:
         """
         Filter kws, dropout, and replace with lineage (including term at end)
         """
-        # kws = [i for i in kws if i in self.kw_to_ctrl]
+        # kws = [i for i in kws if i in self.tokenizer.kw_to_ctrl_idx]
         np.random.shuffle(kws)
         kws = kws[:self.maxKwPerSample]
         
@@ -71,20 +54,19 @@ class transformProtein:
         """
         Filter taxa, dropout, and replace with lineage (including term at end)
         """
-        taxa = [i for i in taxa if i in self.taxa_to_ctrl]
+        taxa = [i for i in taxa if i in self.tokenizer.taxa_to_ctrl_idx]
         np.random.shuffle(taxa)
         taxa = taxa[:self.maxTaxaPerSample]
         
-        taxa = [self.taxa_to_lineage[i] for i in taxa if np.random.random()>drop]
+        taxa = [self.tokenizer.taxa_to_lineage[i] for i in taxa if np.random.random()>drop]
         
         return taxa
 
     def transformSample(self, proteinDict, justidx = True):
         """
         Function to transform/augment a sample.
-        If it's not in swiss or trembl, existence set to 3. Or if it's found in swiss/trembl and you sample an other taxa.
         Padding with all zeros
-        Returns an encoded sample (taxa's,kw's,sequence) and the existence level
+        Returns an encoded sample (taxa's,kw's,sequence) and the existence level to multiply weights
         """
         existence = 3
         if (not self.seqonly):
@@ -98,7 +80,7 @@ class transformProtein:
             encodedSample = []
             seq_idx = 0
             while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
-                encodedSample.append(self.aa_to_ctrl[seq[seq_idx]])
+                encodedSample.append(self.tokenizer.aa_to_ctrl_idx[seq[seq_idx]])
                 seq_idx += 1
             stop_token = 1
             if len(encodedSample)<self.maxSampleLength:
@@ -117,7 +99,7 @@ class transformProtein:
                     encodedSample.extend(kws)
                 seq_idx = 0
                 while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
-                    encodedSample.append(self.aa_to_ctrl[seq[seq_idx]])
+                    encodedSample.append(self.tokenizer.aa_to_ctrl_idx[seq[seq_idx]])
                     seq_idx += 1
                 stop_token = 1
                 if len(encodedSample)<self.maxSampleLength:
@@ -148,8 +130,7 @@ if __name__ == "__main__":
         train_chunk = pickle.load(handle)
     #uid = 'UPI000000BF1A'
     #uid = random.sample(train_chunk.keys(),1)[0]
-    obj = transformProtein(verbose=True, dropRate = 0.1, maxTaxaPerSample = 3, maxKwPerSample = 5, 
-                           selectSwiss = 1.0, selectTrembl = 1.0, seqonly = False)
+    obj = transformProtein(verbose=True, dropRate = 0.1, maxTaxaPerSample = 3, maxKwPerSample = 5, seqonly = False)
     i = 0
     for key in train_chunk:
         encodedSample, existence, thePadIndex = obj.transformSample(train_chunk[key])
