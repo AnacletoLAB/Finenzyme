@@ -27,10 +27,9 @@ class ProteinDataset(Dataset):
             transformObj = self.evalTransform
 
         sample_arr, existence, padIndex = transformObj.transformSample(self.data_chunk[self.uids[idx]])
-        sample_arr = np.array(sample_arr)
+        sample_arr = np.array(sample_arr).astype(int)
         inputs = sample_arr[:-1]
         outputs = sample_arr[1:]
-        
         begAAindex = np.argwhere(inputs>=self.firstAAidx)[0][0]
         
         inputs = torch.from_numpy(inputs)
@@ -40,7 +39,7 @@ class ProteinDataset(Dataset):
 if __name__ == "__main__":
     from torch.utils.data import Dataset, DataLoader
     # Define the path to one pickle files
-    pklpath = 'data/train_test_pkl/train0.p'
+    pklpath = 'data_halogenase/chunks/train0.p'
     
     # instance of the transformProtein class
     transform_obj = transformProtein(maxSampleLength = 511+1, maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.0)

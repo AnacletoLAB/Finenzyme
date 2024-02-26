@@ -67,7 +67,7 @@ class Trainer(object):
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.vocab_size-1, reduction='none')
         
-        self.transformFull = transformProtein(maxSampleLength = seq_length+1)
+        self.transformFull = transformProtein()
         self.writer = SummaryWriter()
 
     def train(self, num_epochs):

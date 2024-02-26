@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import time
 import random
 from tokenizer import Tokenizer
+from model_manager import VocabularyManager
 
 class transformProtein:
     def __init__(self, mapfold = 'mapping_files/', maxSampleLength = 512,
@@ -19,13 +20,8 @@ class transformProtein:
         self.seqonly = seqonly
         self.noflipseq = noflipseq
         self.tokenizer = Tokenizer()
-
-        if self.seqonly:
-            print('Sequence only - no CTRL codes')
-            self.oneEncoderLength = max(self.tokenizer.aa_to_ctrl_idx.values())+1
-        else:
-            self.oneEncoderLength = max(max(self.tokenizer.kw_to_ctrl_idx.values()),max(self.tokenizer.taxa_to_ctrl_idx.values()),max(self.tokenizer.aa_to_ctrl_idx.values())) + 1
-            #print('Using one unified encoder to represent protein sample with length', self.oneEncoderLength)
+        vocab_manager = VocabularyManager()
+        self.oneEncoderLength = vocab_manager.vocab_size -1
     
     def transformSeq(self, seq, prob = 0.0):
         """
@@ -42,7 +38,7 @@ class transformProtein:
         Filter kws, dropout, and replace with lineage (including term at end)
         """
         # kws = [i for i in kws if i in self.tokenizer.kw_to_ctrl_idx]
-        np.random.shuffle(kws)
+        # np.random.shuffle(kws)
         kws = kws[:self.maxKwPerSample]
         kws = [i for i in kws if np.random.random()>drop]
         return kws
@@ -59,7 +55,7 @@ class transformProtein:
         
         return taxa
 
-    def transformSample(self, proteinDict, justidx = True):
+    def transformSample(self, proteinDict):
         """
         Function to transform/augment a sample.
         Padding with all zeros
@@ -69,9 +65,10 @@ class transformProtein:
         existence = 1
         if (not self.seqonly):
             kws = self.transformKwSet(proteinDict['kw'], drop = self.dropRate)
+            print(kws)
             if proteinDict['ex'] in [4, 5]:
                 existence += 1
-            if proteinDict['rw']:
+            if proteinDict['rev']:
                 existence += 1
         seq = self.transformSeq(proteinDict['seq'])
 
@@ -91,21 +88,17 @@ class transformProtein:
             return encodedSample
             
         encodedSample = []
-        if self.oneEncoderLength:
-            if justidx:
-                for kw_line in kws:
-                    encodedSample.extend(kws)
-                seq_idx = 0
-                while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
-                    encodedSample.append(self.tokenizer.aa_to_ctrl_idx[seq[seq_idx]])
-                    seq_idx += 1
-                if len(encodedSample)<self.maxSampleLength:
-                    encodedSample.append(stop_token)
-                thePadIndex = len(encodedSample)
-                while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
-                    encodedSample.append(self.oneEncoderLength)
-            else: 
-                os.exit('error fatal')
+        for kw_line in kws:
+            encodedSample.extend(kw_line)
+        seq_idx = 0
+        while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
+            encodedSample.append(self.tokenizer.aa_to_ctrl_idx[seq[seq_idx]])
+            seq_idx += 1
+        if len(encodedSample)<self.maxSampleLength:
+            encodedSample.append(stop_token)
+        thePadIndex = len(encodedSample)
+        while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
+            encodedSample.append(self.oneEncoderLength)
                 
         if self.verbose:
             print('Raw Data')
@@ -123,7 +116,7 @@ class transformProtein:
 
 if __name__ == "__main__":
     chunknum = 0
-    with open('data/train_test_pkl/train'+str(chunknum)+'.p','rb') as handle:
+    with open('data_halogenase/chunks/train'+str(chunknum)+'.p','rb') as handle:
         train_chunk = pickle.load(handle)
     #uid = 'UPI000000BF1A'
     #uid = random.sample(train_chunk.keys(),1)[0]
