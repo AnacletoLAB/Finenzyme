@@ -27,13 +27,13 @@ class transformProtein:
             self.oneEncoderLength = max(max(self.tokenizer.kw_to_ctrl_idx.values()),max(self.tokenizer.taxa_to_ctrl_idx.values()),max(self.tokenizer.aa_to_ctrl_idx.values())) + 1
             #print('Using one unified encoder to represent protein sample with length', self.oneEncoderLength)
     
-    def transformSeq(self, seq):
+    def transformSeq(self, seq, prob = 0.0):
         """
         Transform the amino acid sequence. Currently only reverses seq--eventually include substitutions/dropout
         """
         if self.noflipseq:
             return seq
-        if np.random.random()>=0.8:
+        if np.random.random()>(1-prob):
             seq = seq[::-1]
         return seq
 
@@ -44,10 +44,7 @@ class transformProtein:
         # kws = [i for i in kws if i in self.tokenizer.kw_to_ctrl_idx]
         np.random.shuffle(kws)
         kws = kws[:self.maxKwPerSample]
-        
-        if np.random.random()<=drop:
-            kws = []
-      
+        kws = [i for i in kws if np.random.random()>drop]
         return kws
 
     def transformTaxaSet(self, taxa, drop = 0.1):
@@ -68,12 +65,14 @@ class transformProtein:
         Padding with all zeros
         Returns an encoded sample (taxa's,kw's,sequence) and the existence level to multiply weights
         """
-        existence = 3
+        stop_token = 4
+        existence = 1
         if (not self.seqonly):
-            existence = 3
             kws = self.transformKwSet(proteinDict['kw'], drop = self.dropRate)
-        elif (not self.seqonly):
-            kws = {}
+            if proteinDict['ex'] in [4, 5]:
+                existence += 1
+            if proteinDict['rw']:
+                existence += 1
         seq = self.transformSeq(proteinDict['seq'])
 
         if self.seqonly:
@@ -82,7 +81,6 @@ class transformProtein:
             while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
                 encodedSample.append(self.tokenizer.aa_to_ctrl_idx[seq[seq_idx]])
                 seq_idx += 1
-            stop_token = 1
             if len(encodedSample)<self.maxSampleLength:
                 encodedSample.append(stop_token)
             while len(encodedSample)<self.maxSampleLength: # add PAD (index is length of vocab)
@@ -101,7 +99,6 @@ class transformProtein:
                 while (len(encodedSample)<self.maxSampleLength) and (seq_idx<len(seq)):
                     encodedSample.append(self.tokenizer.aa_to_ctrl_idx[seq[seq_idx]])
                     seq_idx += 1
-                stop_token = 1
                 if len(encodedSample)<self.maxSampleLength:
                     encodedSample.append(stop_token)
                 thePadIndex = len(encodedSample)

@@ -30,11 +30,6 @@ class ProteinDataset(Dataset):
         sample_arr = np.array(sample_arr)
         inputs = sample_arr[:-1]
         outputs = sample_arr[1:]
-
-        if existence in set({0,1}):
-            existence = 2
-        else:
-            existence = 1
         
         begAAindex = np.argwhere(inputs>=self.firstAAidx)[0][0]
         
