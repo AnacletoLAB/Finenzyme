@@ -49,10 +49,18 @@ class CTRLmodel(torch.nn.Module):
         if os.path.exists(model_path):
             print('Found PyTorch checkpoint at ', model_path)
             checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+            try:
+                self.tied_embedding_softmax.load_state_dict({
+                    'w': checkpoint.pop('tied_embedding_softmax.w', None),
+                    'b': checkpoint.pop('tied_embedding_softmax.b', None)
+                })
+            except:
+                torch.save(checkpoint.state_dict(), model_path)
+                checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
             self.tied_embedding_softmax.load_state_dict({
-                'w': checkpoint.pop('tied_embedding_softmax.w', None),
-                'b': checkpoint.pop('tied_embedding_softmax.b', None)
-            })
+                    'w': checkpoint.pop('tied_embedding_softmax.w', None),
+                    'b': checkpoint.pop('tied_embedding_softmax.b', None)
+                })
             try:
                 self.decoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
             except Exception:

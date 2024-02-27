@@ -3,8 +3,8 @@ import torch
 import numpy as np
 import pickle
 import argparse
-#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-#os.environ["CUDA_VISIBLE_DEVICES"]="1"
+# os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"]="1"
 from torch.utils.tensorboard import SummaryWriter
 from model_manager import CTRLmodel
 from model_manager import VocabularyManager
@@ -77,7 +77,7 @@ class Trainer(object):
         for epoch in range(num_epochs):
             loss_e = 0.0
             num_e = 0
-
+            
             for chunknum in range(10):
                 pklpath = 'data_halogenase/chunks/'
                 pklpath = pklpath + 'train' + str(chunknum) + '.p'
@@ -116,7 +116,7 @@ class Trainer(object):
                                     'model_state_dict': self.model.state_dict(),
                                     'optimizer_state_dict': self.optimizer.state_dict(),
                                     'loss': loss,
-                                   }, (self.model_dir + '_epoch' + str(epoch+1) + '_chunk' + str(chunknum+1) + '.pth'))
+                                   }, (self.model_dir + 'epoch' + str(epoch+1) + '_chunk' + str(chunknum+1) + '.pth'))
                 loss_e/=num_e
                 print('loss_e: ', loss_e)
             print('epoch: ', epoch)
