@@ -55,7 +55,7 @@ class CTRLmodel(torch.nn.Module):
                     'b': checkpoint.pop('tied_embedding_softmax.b', None)
                 })
             except:
-                torch.save(checkpoint.state_dict(), model_path)
+                torch.save(checkpoint['model_state_dict'], model_path)
                 checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
             self.tied_embedding_softmax.load_state_dict({
                     'w': checkpoint.pop('tied_embedding_softmax.w', None),
