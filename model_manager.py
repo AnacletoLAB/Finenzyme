@@ -4,11 +4,13 @@ This module handles
 2) definition of the first and last layers of ProGen: TiedEmbeddingsSoftmax
 3) loading the proGen model
 '''
-import torch
+
 import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
+import torch
 import pytorch_transformer
 from torch.cuda.amp import autocast
-
 
 class VocabularyManager:
     def __init__(self,  vocab_loc = 'mapping_files/vocab.txt'):
@@ -55,12 +57,13 @@ class CTRLmodel(torch.nn.Module):
                     'b': checkpoint.pop('tied_embedding_softmax.b', None)
                 })
             except:
-                torch.save(checkpoint['model_state_dict'], model_path)
-                checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
-            self.tied_embedding_softmax.load_state_dict({
-                    'w': checkpoint.pop('tied_embedding_softmax.w', None),
-                    'b': checkpoint.pop('tied_embedding_softmax.b', None)
-                })
+                print('Error during loading.')
+                #torch.save(checkpoint['model_state_dict'], model_path)
+                #checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
+            #self.tied_embedding_softmax.load_state_dict({
+            #        'w': checkpoint.pop('tied_embedding_softmax.w', None),
+            #        'b': checkpoint.pop('tied_embedding_softmax.b', None)
+            #    })
             try:
                 self.decoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
             except Exception:

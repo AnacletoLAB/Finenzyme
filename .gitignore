@@ -9,6 +9,7 @@ __pycache__/
 # ckpt too big files
 ckpt/
 results_noGit/
+data_halogenase/
 
 # mac os
 .DS_Store
