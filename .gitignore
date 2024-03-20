@@ -6,10 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
-# ckpt too big files
+# too big files
 ckpt/
 results_noGit/
 data_halogenase/
+data_halogenase/generation/
+data_enzymes_classes/results
 
 # mac os
 .DS_Store
