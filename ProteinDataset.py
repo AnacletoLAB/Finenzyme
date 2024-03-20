@@ -1,8 +1,13 @@
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import torch
 from torch.utils.data import Dataset
 from transformProtein import transformProtein
+from tokenizer import Tokenizer
 import numpy as np
 import pickle
+import pandas as pd
 
 class ProteinDataset(Dataset):
 
@@ -16,6 +21,7 @@ class ProteinDataset(Dataset):
         
         self.trainmode=False
         if self.evalTransform==None: self.trainmode=True
+
 
     def __len__(self):
         return len(self.uids)
@@ -32,17 +38,15 @@ class ProteinDataset(Dataset):
         outputs = sample_arr[1:]
         begAAindex = np.argwhere(inputs>=self.firstAAidx)[0][0]
         
-        inputs = torch.from_numpy(inputs)
-        outputs = torch.from_numpy(outputs)
         return inputs, outputs, existence, padIndex, begAAindex
     
 if __name__ == "__main__":
     from torch.utils.data import Dataset, DataLoader
     # Define the path to one pickle files
-    pklpath = 'data_halogenase/chunks/train0.p'
+    pklpath = 'data_enzymes_classes/all_families_data/training_ec_1.p'
     
     # instance of the transformProtein class
-    transform_obj = transformProtein(maxSampleLength = 511+1, maxTaxaPerSample = 3, maxKwPerSample = 5, dropRate = 0.0)
+    transform_obj = transformProtein(maxSampleLength = 511+1, dropRate = 0.0)
     
     # load the vocabulary from file
     vocab = open('mapping_files/vocab.txt').readlines()

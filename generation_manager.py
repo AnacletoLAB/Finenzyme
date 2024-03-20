@@ -69,22 +69,29 @@ class GeneratorManager:
         self.predict_stop_mine = predict_stop_mine  
 
 
-    def techer_forcing_generation_new(self, input_dataset_path='/home/saitto/ProGen/my_data/test.p'):
+    def techer_forcing_generation_new(self, input_dataset_path='/home/saitto/ProGen/my_data/test.p', testing_general=False):
         # input: path to the dataset
         # output: list of true sequences, list of generated sequences (top-k implementation),  
         #         list of list of aa prob distribution.
         with open(input_dataset_path, 'rb') as f:
             data = pickle.load(f)
         names = list(data.keys())
+
+        if testing_general:
+            # remove all keywords from data
+            for name in names:
+                data[name]["kw"] = []  # Set the keyword list to empty for each sequence
+
         # for testing:
         #names = names[:64]
-        keywords = [data[name]["kw"] for name in names]
+        
+        keywords = [data[name]["kw"] for name in names]            
         begAAindex = [len(keywords[n]) for n in range(len(keywords))]
         sequences = [data[name]["seq"] for name in names]
         inputs = []
         for n in range (len(sequences)):
-            keywords[n] = [int(kw) for kw in keywords[n]]
-            inputs.append(keywords[n] + [self.tokenizer.aa_to_ctrl_idx[aa] for aa in sequences[n]])
+                keywords[n] = [int(kw) for kw in keywords[n]]
+                inputs.append(keywords[n] + [self.tokenizer.aa_to_ctrl_idx[aa] for aa in sequences[n]])
         padIndex = [len(input) for input in inputs]
         maximum = max([len(i) for i in inputs])
         input_tensor = torch.zeros(len(inputs), maximum, dtype=torch.long)
@@ -111,7 +118,8 @@ class GeneratorManager:
         probs_aa_distributions = []
         for sample_i in range(full_output.shape[0]):
             if begAAindex[sample_i] == 0:
-                y_pred = full_output[sample_i][:-1]
+                y_pred = full_output[sample_i][:padIndex[sample_i]-1]
+                sequences[sample_i] = sequences[sample_i][1:]
             else: # if there is a keyword
                 y_pred = full_output[sample_i][begAAindex[sample_i]-1:padIndex[sample_i]-1]
             y_pred = F.softmax(y_pred, dim=1)
