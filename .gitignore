@@ -11,11 +11,7 @@ ckpt/
 results_noGit/
 data_halogenase/
 data_halogenase/generation/
-<<<<<<< HEAD
-data_enzymes_classes/results
-=======
 data_enzymes_classes/results/
->>>>>>> 07921185388ca31f65f70f022e18d1297aba6c22
 
 # mac os
 .DS_Store
