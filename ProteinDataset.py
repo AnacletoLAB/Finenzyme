@@ -1,6 +1,4 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import torch
 from torch.utils.data import Dataset
 from transformProtein import transformProtein

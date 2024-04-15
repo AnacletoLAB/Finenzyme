@@ -1,7 +1,5 @@
 import pickle
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import numpy as np
 import matplotlib.pyplot as plt
 import time
@@ -33,7 +31,7 @@ class transformProtein:
             seq = seq[::-1]
         return seq
 
-    def transformKwSet(self, kws, drop = 0.1):
+    def transformKwSet(self, kws, drop = 0.2):
         """
         Filter kws, dropout, and replace with lineage (including term at end)
         """
@@ -55,7 +53,7 @@ class transformProtein:
 
         if proteinDict['ex'] in [4, 5]:
             existence += 1
-    
+        
         seq = self.transformSeq(proteinDict['seq'])
 
         seq = list(self.tokenizer.aa_to_ctrl_idx[seq[i]] for i in range(len(seq)))

@@ -1,6 +1,4 @@
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
 import torch
 import numpy as np
 import pickle
@@ -21,10 +19,10 @@ parser.add_argument('--seed', type=int, default=313,
                                         help='random seed for TensorFlow, numpy and PythonHash')
 parser.add_argument('--sequence_len', type=int, default=511,
                                         help='sequence len of model being fine-tuned')
-parser.add_argument('--num_epochs', type=int, default=6, help='number of epochs to train for')
-parser.add_argument('--batch_size', type=int, default=16, help='batch size for dataloader')
-parser.add_argument('--num_workers', type=int, default=2, help='for dataloader')
-parser.add_argument('--warmup_iteration', type=int, default=100, help='LR warmup cutoff')
+parser.add_argument('--num_epochs', type=int, default=8, help='number of epochs to train for')
+parser.add_argument('--batch_size', type=int, default=2, help='batch size for dataloader')
+parser.add_argument('--num_workers', type=int, default=8, help='for dataloader')
+parser.add_argument('--warmup_iteration', type=int, default=1000, help='LR warmup cutoff')
 parser.add_argument('--save_iter', type=int, default=10, help='save model checkpoint every X iterations')
 
 args = parser.parse_args()
@@ -60,27 +58,63 @@ class Trainer(object):
         self.model_dir = model_dir
         self.save_iter = save_iter
         self.firstAAidx = self.vocab_size - 26 # Assuming that the pad token is the last token and AAs are at the end
-        
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr = 0.0002) #lr, betas
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr = 0.0001) #lr, betas
         lambdafn = lambda iteration: min(iteration/(warmup_iteration*1.0),1.0)
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lambdafn)
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.vocab_size-1, reduction='none')
-        
-        self.transformFull = transformProtein(stop_token = 7)
+        self.name = 'ec_7_2_1_1'
+        self.db_directory = 'data_specific_enzymes/databases/pickles/'
+        self.transformFull = transformProtein(stop_token = 1)
+        self.validate_active = True
         self.writer = SummaryWriter()
+
+    def validate(self, path):
+        print('validating on file: ', path)
+        self.validation_dataset = ProteinDataset(path, 
+                                                 firstAAidx=self.firstAAidx, 
+                                                 transformFull=self.transformFull)
+        self.validation_dataloader = DataLoader(self.validation_dataset, 
+                                                shuffle=False, batch_size=self.batch_size, 
+                                                num_workers=self.num_workers, pin_memory=False)
+        self.model.eval()  
+        total_loss = 0.0
+        total_samples = 0
+        with torch.no_grad(): 
+            for i, (sample, labels, existence, padIndex, begAAindex) in enumerate(self.validation_dataloader):
+                if torch.cuda.is_available():
+                    sample = sample.cuda()
+                    labels = labels.cuda()
+                    padIndex = padIndex.cuda()
+                    begAAindex = begAAindex.cuda()
+                    existence = existence.cuda()
+                output = self.model(sample)
+                loss = self.criterion(output.permute(0,2,1), labels)
+                loss = torch.mean((torch.sum(loss,dim=1)/padIndex)*existence)  # Pad masking, loss weighting
+                total_loss += loss.item() * sample.shape[0]  # Multiply by batch size to accumulate total loss correctly
+                total_samples += sample.shape[0]
+        
+        avg_loss = total_loss / total_samples
+        self.model.train()  # Set the model back to training mode
+        return avg_loss
 
     def train(self, num_epochs):
         self.model.train()
         GPU = torch.cuda.is_available()
         iter_num = 0
+
+        best_val_loss = float('inf')
+        delta_percentage = 0.0015 # 0.15% delta
+        patience = 1
+        patience_counter = 0
+        
         for epoch in range(num_epochs):
             loss_epoch = 0.0
             num_epoch = 0
+            print('Training on family: ', self.name)
 
-            name = 'ec_5'
-            print('Training on family: ', name)
-            path_training = "data_enzymes_classes/all_families_data/training_"+name+ ".p"
+            path_training = self.db_directory+"training_"+self.name+ ".p"
+            
             full_dataset = ProteinDataset(path_training, firstAAidx = self.firstAAidx, transformFull = self.transformFull)
             dataloader = DataLoader(full_dataset, shuffle = True, batch_size = self.batch_size,
                                         num_workers = self.num_workers, pin_memory = False) #TODO pinmem?
@@ -116,27 +150,40 @@ class Trainer(object):
                 loss_epoch += loss.item()
                 num_epoch += sample.shape[0]
 
-                
                 if iter_num %10 == 0:
                     print('epoch: ', epoch+1)
                     print('loss within epoch: ', loss_accumulator/samples_num_epoch)
                     samples_num_epoch = 0
                     loss_accumulator = 0.0
 
-
-
             print('epoch: ', epoch + 1)
             print('loss_epoch: ', loss_epoch/num_epoch, epoch + 1)
             self.writer.add_scalar('Loss_epoch',loss_epoch/num_epoch, epoch + 1)
+            
+            if self.validate_active:
+                path = self.db_directory+"validation_"+self.name+ ".p"
+                validation_loss = self.validate(path)
+                print('Validation loss after epoch {}: {}'.format(epoch + 1, validation_loss))
+                self.writer.add_scalar('Validation_loss', validation_loss, epoch + 1)
+    
+                path = self.db_directory+"validation_reduced_"+self.name+ ".p"
+                validation_loss = self.validate(path)
+                print('Validation loss after epoch {}: {}'.format(epoch + 1, validation_loss))
+                self.writer.add_scalar('Validation_filtered_loss', validation_loss, epoch + 1)
 
-            if epoch + 1 == 4:
-                print('Saving checkpoint..')
-                torch.save(self.model.state_dict(),'ckpt/ec_5_4epochs_flip_LR02_16batch.pth')
-
+                if (best_val_loss - validation_loss) >= (best_val_loss * delta_percentage):
+                    best_val_loss = validation_loss
+                    torch.save(self.model.state_dict(),'ckpt/'+self.name+'_warmup_1000_earlystop_015_flip_LR01_2batch.pth')
+                elif patience_counter < 1: # and validation_loss <= best_val_loss:
+                    torch.save(self.model.state_dict(),'ckpt/'+self.name+'_warmup_1000_earlystop_015_flip_LR01_2batch.pth')
+                    patience_counter += 1
+                else:
+                    print('EARLY STOPPED.')
+                    print('LAST CHECKPOINT SAVED: OF EPOCH:', epoch)
+                    break
                                    
-        print('Training ended. saving last checkpoint')
-        print('Saving last checkpoint..')
-        torch.save(self.model.state_dict(),'ckpt/ec_5_6epochs_flip_doubleLR02_16batch.pth')
+        print('Training ended.')
+        #torch.save(self.model.state_dict(),'ckpt/'+self.name+'_6epochs_flip_LR01_2batch.pth')
 
 
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,

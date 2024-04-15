@@ -5,8 +5,8 @@ This module implemets ProGen generation as a classifier, comprising three main c
 3) generation_complete_sequence: generates sequences using a fine-tuned model. Stop keyword usage.
 '''
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+#os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import torch
 import pickle
 import numpy as np
@@ -69,7 +69,7 @@ class GeneratorManager:
         self.predict_stop_mine = predict_stop_mine  
 
 
-    def techer_forcing_generation_new(self, input_dataset_path='/home/saitto/ProGen/my_data/test.p', testing_general=False):
+    def techer_forcing_generation_new(self, input_dataset_path='', testing_general=False):
         # input: path to the dataset
         # output: list of true sequences, list of generated sequences (top-k implementation),  
         #         list of list of aa prob distribution.
