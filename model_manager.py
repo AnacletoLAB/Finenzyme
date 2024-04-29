@@ -6,8 +6,8 @@ This module handles
 '''
 
 import os
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="1"
+#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import torch
 import pytorch_transformer
 from torch.cuda.amp import autocast
@@ -28,6 +28,8 @@ class TiedEmbeddingSoftmax(torch.nn.Module):
         self.b = torch.nn.Parameter(torch.zeros(vocab_size))
 
     def forward(self, inputs, embed=True):
+        print('inputs:', inputs.shape)
+        print('w:', self.w.shape)
         with autocast(enabled=False):
             if embed:
                 return torch.nn.functional.embedding(inputs, self.w)
@@ -58,12 +60,8 @@ class CTRLmodel(torch.nn.Module):
                 })
             except:
                 print('Error during loading.')
-                #torch.save(checkpoint['model_state_dict'], model_path)
-                #checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
-            #self.tied_embedding_softmax.load_state_dict({
-            #        'w': checkpoint.pop('tied_embedding_softmax.w', None),
-            #        'b': checkpoint.pop('tied_embedding_softmax.b', None)
-            #    })
+
+    
             try:
                 self.decoder.load_state_dict({key.replace("encoder.", ""): value for key, value in checkpoint.items()})
             except Exception:

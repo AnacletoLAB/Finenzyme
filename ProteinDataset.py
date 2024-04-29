@@ -41,7 +41,7 @@ class ProteinDataset(Dataset):
 if __name__ == "__main__":
     from torch.utils.data import Dataset, DataLoader
     # Define the path to one pickle files
-    pklpath = 'data_enzymes_classes/all_families_data/training_ec_1.p'
+    pklpath = 'data_scop/training_scop.p'
     
     # instance of the transformProtein class
     transform_obj = transformProtein(maxSampleLength = 511+1, dropRate = 0.0)

@@ -81,7 +81,7 @@ class transformProtein:
         return encodedSample, existence, thePadIndex
 
 if __name__ == "__main__":
-    with open('data_enzymes_classes/all_families_data/test_ec_1.p','rb') as handle:
+    with open('data_scop/training_scop.p','rb') as handle:
         test_chunk = pickle.load(handle)
 
     obj = transformProtein(verbose=False, dropRate = 0.0, seqonly = False)
