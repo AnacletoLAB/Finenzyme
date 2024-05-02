@@ -66,7 +66,7 @@ class Trainer(object):
         self.name = 'scop'
         self.db_directory = 'data_scop/'
         self.transformFull = transformProtein(stop_token = 1)
-        self.validate_active = True
+        self.validate_active = False
         self.writer = SummaryWriter()
 
     def validate(self, path):
