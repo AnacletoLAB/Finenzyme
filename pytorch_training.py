@@ -10,7 +10,7 @@ from transform_protein import transformProtein
 from protein_dataset import ProteinDataset
 from torch.utils.data import Dataset, DataLoader
 
-DATA_PATH = 'data_scop/'
+DATA_PATH = 'scop_data/'
 DATA_FILE = 'scop'
 
 DEFAULT_MODEL_PATH = 'ckpt/pretrain_progen_full.pth'
@@ -67,7 +67,7 @@ class Trainer(object):
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lambdafn)
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.vocab_size-1, reduction='none')
-        self.name = DATA_FILE.split('.')[1]
+        self.name = DATA_FILE
         self.db_directory = DATA_PATH
         self.transformFull = transformProtein(stop_token = 1)
         self.validate_active = True
