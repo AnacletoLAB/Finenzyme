@@ -6,15 +6,19 @@ import argparse
 from torch.utils.tensorboard import SummaryWriter
 from model_manager import CTRLmodel
 from model_manager import VocabularyManager
-from transformProtein import transformProtein
-from ProteinDataset import ProteinDataset
+from transform_protein import transformProtein
+from protein_dataset import ProteinDataset
 from torch.utils.data import Dataset, DataLoader
 
+DATA_PATH = 'data_scop/'
+DATA_FILE = 'scop'
+
+DEFAULT_MODEL_PATH = 'ckpt/pretrain_progen_full.pth'
 
 parser = argparse.ArgumentParser(description='Code to train ProGen')
 parser.add_argument('--model_dir', type =str, default='ckpt/',
                                         help='location of training model checkpoint')
-parser.add_argument('--model_path', type=str, default='ckpt/pretrain_progen_full_vocab_scop.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
+parser.add_argument('--model_path', type=str, default=DEFAULT_MODEL_PATH, help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
 parser.add_argument('--seed', type=int, default=313,
                                         help='random seed for TensorFlow, numpy and PythonHash')
 parser.add_argument('--sequence_len', type=int, default=511,
@@ -24,7 +28,7 @@ parser.add_argument('--batch_size', type=int, default=2, help='batch size for da
 parser.add_argument('--num_workers', type=int, default=8, help='for dataloader')
 parser.add_argument('--warmup_iteration', type=int, default=1000, help='LR warmup cutoff')
 parser.add_argument('--save_iter', type=int, default=10, help='save model checkpoint every X iterations')
- 
+
 args = parser.parse_args()
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
@@ -44,7 +48,7 @@ model.tied_embedding_softmax.w.requires_grad=True
 model.tied_embedding_softmax.b.requires_grad=True
 
 if torch.cuda.is_available():
-    #model = model.cuda()
+    model = model.cuda()
     print('previous checkpoint loaded in GPU')
 else:
     print('previous checkpoint loaded')
@@ -63,10 +67,10 @@ class Trainer(object):
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lambdafn)
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.vocab_size-1, reduction='none')
-        self.name = 'scop'
-        self.db_directory = 'data_scop/'
+        self.name = DATA_FILE.split('.')[1]
+        self.db_directory = DATA_PATH
         self.transformFull = transformProtein(stop_token = 1)
-        self.validate_active = False
+        self.validate_active = True
         self.writer = SummaryWriter()
 
     def validate(self, path):
@@ -82,12 +86,12 @@ class Trainer(object):
         total_samples = 0
         with torch.no_grad(): 
             for i, (sample, labels, existence, padIndex, begAAindex) in enumerate(self.validation_dataloader):
-                # if torch.cuda.is_available():
-                #     sample = sample.cuda()
-                #     labels = labels.cuda()
-                #     padIndex = padIndex.cuda()
-                #     begAAindex = begAAindex.cuda()
-                #     existence = existence.cuda()
+                if torch.cuda.is_available():
+                    sample = sample.cuda()
+                    labels = labels.cuda()
+                    padIndex = padIndex.cuda()
+                    begAAindex = begAAindex.cuda()
+                    existence = existence.cuda()
                 output = self.model(sample)
                 loss = self.criterion(output.permute(0,2,1), labels)
                 loss = torch.mean((torch.sum(loss,dim=1)/padIndex)*existence)  # Pad masking, loss weighting
@@ -123,14 +127,14 @@ class Trainer(object):
             loss_accumulator = 0.0
             for i, (sample, labels, existence, padIndex, begAAindex) in enumerate(dataloader):
 
-                # if GPU:
-                #     sample = sample.cuda()
-                #     labels = labels.cuda()
-                #     padIndex = padIndex.cuda()
-                #     begAAindex = begAAindex.cuda()
-                #     existence = existence.cuda()
-                # else:
-                #     raise ValueError('No GPU available (not going to happen)')
+                if GPU:
+                    sample = sample.cuda()
+                    labels = labels.cuda()
+                    padIndex = padIndex.cuda()
+                    begAAindex = begAAindex.cuda()
+                    existence = existence.cuda()
+                else:
+                    raise ValueError('No GPU available (not going to happen)')
                 
                 self.optimizer.zero_grad()
                 output = self.model(sample)
