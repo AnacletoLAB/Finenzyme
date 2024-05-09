@@ -24,7 +24,7 @@ parser.add_argument('--seed', type=int, default=313,
 parser.add_argument('--sequence_len', type=int, default=511,
                                         help='sequence len of model being fine-tuned')
 parser.add_argument('--num_epochs', type=int, default=8, help='number of epochs to train for')
-parser.add_argument('--batch_size', type=int, default=2, help='batch size for dataloader')
+parser.add_argument('--batch_size', type=int, default=16, help='batch size for dataloader')
 parser.add_argument('--num_workers', type=int, default=8, help='for dataloader')
 parser.add_argument('--warmup_iteration', type=int, default=1000, help='LR warmup cutoff')
 parser.add_argument('--save_iter', type=int, default=10, help='save model checkpoint every X iterations')

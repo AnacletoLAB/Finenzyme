@@ -12,7 +12,7 @@ DATA_PATH = 'scop_data/'
 DATA_FILE = 'training_scop.p'
 
 class transformProtein:
-    def __init__(self, stop_token = 4, mapfold = MAPPING_FOLDER, maxSampleLength = 512,
+    def __init__(self, stop_token = 0, mapfold = MAPPING_FOLDER, maxSampleLength = 512,
                  verbose = False, dropRate = 0.2, seqonly = False, noflipseq = False):
 
         self.stop_token = stop_token
@@ -66,11 +66,17 @@ class transformProtein:
 
         seq = np.array(kws + seq + [self.stop_token]).astype(int)
 
-        thePadIndex = len(seq)
-
-        encodedSample = np.full(self.maxSampleLength, self.oneEncoderLength, dtype = int)
-
-        encodedSample[:len(seq)] = seq
+        #thePadIndex = len(seq)
+        
+        encodedSample = np.full(self.maxSampleLength, self.oneEncoderLength, dtype = int) 
+        
+        if len(seq) > self.maxSampleLength:
+            encodedSample = seq[:self.maxSampleLength]
+            thePadIndex = self.maxSampleLength
+        else:
+            encodedSample[:len(seq)] = seq
+            thePadIndex = len(seq)
+        
 
         if self.verbose:
             print('Raw Data')

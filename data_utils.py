@@ -9,7 +9,7 @@ def create_mapping_dict(kw: list):
     """
     mapping_dict = {}
     for i, k in enumerate(kw):
-        mapping_dict[k] = i
+        mapping_dict[k] = i + 1
     return mapping_dict
 
 def write_mapping_dict(mapping_dict: dict, file_name: str):
@@ -56,6 +56,7 @@ def write_vocab(dicts: list, path = 'mapping_files/vocab.txt'):
     #write it to a txt file in the format:
     #key value\n
     with open(path, 'w') as f:
+        f.write("%s %s\n" % ('STOP', 0)) #STOP TOKEN
         for key in vocab.keys():
             f.write("%s %s\n" % (key, vocab[key]))
         f.write("%s %s\n" % ('PAD', len(vocab)))
