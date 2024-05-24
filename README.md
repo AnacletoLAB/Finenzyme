@@ -1,4 +1,4 @@
-# ProGen
+# Finezyme
 language modeling for protein sequences
 
 ## Setup
