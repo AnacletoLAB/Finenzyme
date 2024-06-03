@@ -11,7 +11,7 @@ from ProteinDataset import ProteinDataset
 from torch.utils.data import Dataset, DataLoader
 
 
-parser = argparse.ArgumentParser(description='Code to train ProGen')
+parser = argparse.ArgumentParser(description='Code to train Finenzyme')
 parser.add_argument('--model_dir', type =str, default='ckpt/',
                                         help='location of training model checkpoint')
 parser.add_argument('--model_path', type=str, default='ckpt/pretrain_progen_full.pth', help='location of model *data* checkpoint to load; this is NOT the directory but rather the model checkpoint')
@@ -24,6 +24,9 @@ parser.add_argument('--batch_size', type=int, default=2, help='batch size for da
 parser.add_argument('--num_workers', type=int, default=8, help='for dataloader')
 parser.add_argument('--warmup_iteration', type=int, default=1000, help='LR warmup cutoff')
 parser.add_argument('--save_iter', type=int, default=10, help='save model checkpoint every X iterations')
+parser.add_argument('--stop_token', type=int, default=1, help='fine-tuning stop token')
+parser.add_argument('--model_name', type=str, default='fine_tuned_model_test', help='fine-tuning model name') # ec_3_2_1_4
+parser.add_argument('--db_directory', type=str, default='data_specific_enzymes/databases/pickles/', help='fine-tuning dataset directory')
 
 args = parser.parse_args()
 torch.manual_seed(args.seed)
@@ -37,9 +40,6 @@ seq_length = args.sequence_len
 model = CTRLmodel()
 model.loadCheckpoint(model_path=args.model_path)
 
-# freeze all weights except embedding
-# for p in model.parameters():
-#    p.requires_grad=False
 model.tied_embedding_softmax.w.requires_grad=True
 model.tied_embedding_softmax.b.requires_grad=True
 
@@ -50,7 +50,8 @@ else:
     print('previous checkpoint loaded')
 
 class Trainer(object):
-    def __init__(self, model, warmup_iteration, seq_length, batch_size, num_workers, vocab_size, model_dir, save_iter):
+    def __init__(self, model, warmup_iteration, seq_length, batch_size, 
+                 num_workers, vocab_size, model_dir, save_iter, stop_token, model_name, db_directory):
         self.model = model
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -63,9 +64,9 @@ class Trainer(object):
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(self.optimizer, lambdafn)
         
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=self.vocab_size-1, reduction='none')
-        self.name = 'ec_7_2_1_1'
-        self.db_directory = 'data_specific_enzymes/databases/pickles/'
-        self.transformFull = transformProtein(stop_token = 1)
+        self.name = model_name
+        self.db_directory = db_directory
+        self.transformFull = transformProtein(stop_token)
         self.validate_active = True
         self.writer = SummaryWriter()
 
@@ -188,6 +189,7 @@ class Trainer(object):
 
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,
                    batch_size=args.batch_size, num_workers=args.num_workers, vocab_size=vocab_manager.vocab_size,
-                   model_dir = args.model_dir, save_iter=args.save_iter)
+                   model_dir = args.model_dir, save_iter=args.save_iter, stop_token=args.stop_token, 
+                   model_name=args.model_name, db_directory= args.db_directory)
 print('begin training...')
 training.train(args.num_epochs)

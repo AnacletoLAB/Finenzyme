@@ -5,8 +5,6 @@ This module implemets ProGen generation as a classifier, comprising three main c
 3) generation_complete_sequence: generates sequences using a fine-tuned model. Stop keyword usage.
 '''
 import os
-#os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-#os.environ["CUDA_VISIBLE_DEVICES"]="0"
 import torch
 import pickle
 import numpy as np
@@ -267,7 +265,7 @@ class GeneratorManager:
         top_p: the probability threshold to be used for the generation
         max_len: the maximum length of the sequence to be generated if the input sequence is shorter than 511
         Returns the generated sequence
-        Returns a list of sequences generated when the stop token is predicted
+        Returns a list of stop probabilities for the stop token
         Returns the probability distributions of the tokens generated as a list of lists
         '''
         input_indices = [self.tokenizer.aa_to_ctrl_idx[j] for j in input_sequence]
@@ -315,10 +313,7 @@ class GeneratorManager:
             prompt_probs_no_stop = softmax(prompt_logits[:-1])
             pruned_array = np.argsort(prompt_probs_no_stop)[::-1]
 
-            if prob_stop >= 0.50:
-                tokens_generated_stopped = list(total_array[0][len(keywords):current_position])
-                tokens_generated_stopped = ''.join([self.tokenizer.ctrl_idx_to_aa[c] for c in tokens_generated_stopped])
-                res_stopped.append(tokens_generated_stopped)
+            res_stopped.append(prob_stop)
             
             #top_p is used to sample from the tokesns where the cumulative probability is less than or equal to p
             if self.top_p==1:
