@@ -25,6 +25,12 @@ class GeneratorManager:
         else: 
             print('GPU not aviable. Previous checkpoint loaded in CPU')
         self.model = model
+        
+        def count_trainable_parameters(model):
+            return sum(p.numel() for p in model.parameters() if p.requires_grad)
+        num_params = count_trainable_parameters(model)
+        print(f'The number of trainable parameters: {num_params}')
+        
         self.model.eval()
         vocab_manager = VocabularyManager()
         self.vocab_size = vocab_manager.vocab_size

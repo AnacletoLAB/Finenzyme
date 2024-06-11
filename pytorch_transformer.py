@@ -125,6 +125,7 @@ class Decoder(torch.nn.Module):
 
     for i in range(num_layers):
       setattr(self, "layer%i" % i, DencoderLayer(d_model_size, num_heads, dff, rate))
+      #print(f'"layer%i" % {i}, DencoderLayer(d_model_size {d_model_size}, num_heads {num_heads}, dff {dff})')
     
     self.layernorm = torch.nn.LayerNorm(d_model_size, eps=1e-6)  
     self.dropout = torch.nn.Dropout(rate)
