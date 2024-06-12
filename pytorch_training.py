@@ -27,6 +27,9 @@ parser.add_argument('--save_iter', type=int, default=10, help='save model checkp
 parser.add_argument('--stop_token', type=int, default=1, help='fine-tuning stop token')
 parser.add_argument('--model_name', type=str, default='fine_tuned_model_test', help='fine-tuning model name') # ec_3_2_1_4
 parser.add_argument('--db_directory', type=str, default='data_specific_enzymes/databases/pickles/', help='fine-tuning dataset directory')
+parser.add_argument('--validate', type=bool, default=True, help='compute validation loss')
+parser.add_argument('--early_stop', type=bool, default=True, help='early stop if validation loss increase')
+parser.add_argument('--filtered_validation', type=bool, default=False, help='early stop if filtered validation loss increase')
 
 args = parser.parse_args()
 torch.manual_seed(args.seed)
@@ -51,7 +54,8 @@ else:
 
 class Trainer(object):
     def __init__(self, model, warmup_iteration, seq_length, batch_size, 
-                 num_workers, vocab_size, model_dir, save_iter, stop_token, model_name, db_directory):
+                 num_workers, vocab_size, model_dir, save_iter, stop_token, 
+                 model_name, db_directory, validate_active, early_stop, validation_filtered):
         self.model = model
         self.batch_size = batch_size
         self.num_workers = num_workers
@@ -67,7 +71,9 @@ class Trainer(object):
         self.name = model_name
         self.db_directory = db_directory
         self.transformFull = transformProtein(stop_token)
-        self.validate_active = True
+        self.validate_active = validate_active
+        self.validate_on_filtered = validation_filtered
+        self.early_stop = early_stop
         self.writer = SummaryWriter()
 
     def validate(self, path):
@@ -162,27 +168,32 @@ class Trainer(object):
             self.writer.add_scalar('Loss_epoch',loss_epoch/num_epoch, epoch + 1)
             
             if self.validate_active:
+                if self.validate_on_filtered:
+                    path = self.db_directory+"validation_reduced_"+self.name+ ".p"
+                    validation_loss_filtered = self.validate(path)
+                    print('Validation loss after epoch {}: {}'.format(epoch + 1, validation_loss))
+                    self.writer.add_scalar('Validation_filtered_loss', validation_loss, epoch + 1)
+
                 path = self.db_directory+"validation_"+self.name+ ".p"
                 validation_loss = self.validate(path)
                 print('Validation loss after epoch {}: {}'.format(epoch + 1, validation_loss))
                 self.writer.add_scalar('Validation_loss', validation_loss, epoch + 1)
-    
-                path = self.db_directory+"validation_reduced_"+self.name+ ".p"
-                validation_loss = self.validate(path)
-                print('Validation loss after epoch {}: {}'.format(epoch + 1, validation_loss))
-                self.writer.add_scalar('Validation_filtered_loss', validation_loss, epoch + 1)
 
-                if (best_val_loss - validation_loss) >= (best_val_loss * delta_percentage):
-                    best_val_loss = validation_loss
-                    torch.save(self.model.state_dict(),'ckpt/'+self.name+'_warmup_1000_earlystop_015_flip_LR01_2batch.pth')
-                elif patience_counter < 1: # and validation_loss <= best_val_loss:
-                    torch.save(self.model.state_dict(),'ckpt/'+self.name+'_warmup_1000_earlystop_015_flip_LR01_2batch.pth')
-                    patience_counter += 1
-                else:
-                    print('EARLY STOPPED.')
-                    print('LAST CHECKPOINT SAVED: OF EPOCH:', epoch)
-                    break
-                                   
+                if self.validate_on_filtered:
+                    validation_loss = validation_loss_filtered
+                    
+                if self.early_stop:
+                    if (best_val_loss - validation_loss) >= (best_val_loss * delta_percentage):
+                        best_val_loss = validation_loss
+                        torch.save(self.model.state_dict(),'ckpt/'+self.name+'_TEST_warmup_1000_earlystop_015_flip_LR01_2batch.pth')
+                    elif patience_counter < 1: # and validation_loss <= best_val_loss:
+                        torch.save(self.model.state_dict(),'ckpt/'+self.name+'_TEST_warmup_1000_earlystop_015_flip_LR01_2batch.pth')
+                        patience_counter += 1
+                    else:
+                        print('EARLY STOPPED.')
+                        print('LAST CHECKPOINT SAVED: OF EPOCH:', epoch)
+                        break
+                                       
         print('Training ended.')
         #torch.save(self.model.state_dict(),'ckpt/'+self.name+'_6epochs_flip_LR01_2batch.pth')
 
@@ -190,6 +201,7 @@ class Trainer(object):
 training = Trainer(model=model, warmup_iteration=args.warmup_iteration, seq_length=seq_length,
                    batch_size=args.batch_size, num_workers=args.num_workers, vocab_size=vocab_manager.vocab_size,
                    model_dir = args.model_dir, save_iter=args.save_iter, stop_token=args.stop_token, 
-                   model_name=args.model_name, db_directory= args.db_directory)
+                   model_name=args.model_name, db_directory=args.db_directory, 
+                   validate_active=args.validate, early_stop=args.early_stop, validation_filtered=args.filtered_validation)
 print('begin training...')
 training.train(args.num_epochs)
