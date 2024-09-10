@@ -8,7 +8,7 @@ Typical installation time on the tested hardware: 5 to 10 minutes.
 3. Pip install requirements.txt file
 4. Download the pre-trained foundational model from this link: `https://drive.google.com/drive/folders/1_odDCoRF35LmdTZH-bS6JICiedcqIlRs?usp=share_link`
 
-## Files dscription and functionalities
+## Files description and functionalities
 - `generation_manager.py`: This module defines the GeneratorManager class, that can be used to generate new molechules with a model checkpoint. The generation can start with optional keywords and aminoacids prefix from where to start the generation. The module contains three generation functions:
   1) teacher forcing generation: given a sequence, it computes the resulting generation for each position in the sequence given all the previous (input) positions.
   2) after-n generation: given a sequence, the model takes the first n aminoacids as prefix and generates until the length of the actual (real) protein in input to the model. (in addition the probabilities for each amino acid predicted)
@@ -22,7 +22,7 @@ Typical installation time on the tested hardware: 5 to 10 minutes.
 - `blosum/`: This directory contains the blosum substitution matrix used to compute the soft accuracy measure.
 - `notebooks/`: This directory contains notebooks used for subsequent analysis of generated molecules, and generation use cases.
 
-## Finenzyme Data aviability
+## Finenzyme Data availability
 The Datasets used to train Finenzyme have been downloaded with UniProt. As explained in detail inside the notebook tutorial `generation_and_finetuning_tutorial.ipynb`, the Only two filters used when downloading the sequences from UniProt are discarding sequences with less than 10 amino acids and more than 500 amino acids.
 Regarding the reduced test sets: in order to further test Finenzyme we computed filtered test sets based on BLASTp output, with the full test set and the training set. The filtered test contains sequences with BLASTp sequence similarity of the full test set less than 70% with respect to the training set.
 
