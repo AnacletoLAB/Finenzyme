@@ -12,6 +12,8 @@ results_noGit/
 data_halogenase/
 data_halogenase/generation/
 data_enzymes_classes/results/
+data_lysozymes/
+data_enzymes_classes/
 
 # mac os
 .DS_Store
