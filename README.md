@@ -9,18 +9,18 @@ Typical installation time on the tested hardware: 5 to 10 minutes.
 4. Download the pre-trained foundational model from this link: `https://drive.google.com/drive/folders/1_odDCoRF35LmdTZH-bS6JICiedcqIlRs?usp=share_link`
 
 ## Files dscription and functionalities
-- `model_manager.py`: .
-- `tokenizer.py`: .
-- `generation_manager.py`: .
-- `ProteinDataset.py`: .
-- `pytorch_training.py`: .
-- `pytorch_transformer.py`: .
-- `transformProtein.py`: .
-- `dataset_manager.py`: .
-- `generation_and_finetuning_tutorial.ipynb`: .
-- `blosum/`: .
-- `mapping_files/`: .
-- `notebooks/`: .
+- `generation_manager.py`: This module defines the GeneratorManager class, that can be used to generate new molechules with a model checkpoint. The generation can start with optional keywords and aminoacids prefix from where to start the generation. The module contains three generation functions:
+  1) teacher forcing generation: given a sequence, it computes the resulting generation for each position in the sequence given all the previous (input) positions.
+  2) after-n generation: given a sequence, the model takes the first n aminoacids as prefix and generates until the length of the actual (real) protein in input to the model. (in addition the probabilities for each amino acid predicted)
+  3) generation_complete_sequence: generates sequences with optional keywords and aminoacids prefix in input, the generation is stopped when the stop keyword is generated.
+- `model_manager.py`: This module contains the classes used to create the model structure (togheter with `pytorch_transformer.py` module), and handles model checkpoint loading.
+- `tokenizer.py`: This module defines the tokenizer class, that allows to transform amino acids and keywords into model tokens using mapping files from `mapping_files/` directory.
+- `ProteinDataset.py`: This module contains the ProteinDataset class, that is in charge (toghether with `transformProtein.py`) of loading pickle files that contain the dataset (generated from  `dataset_manager.py` module) used to train the model.
+- `pytorch_training.py`: This module handles model training (Trainer class).
+- `generation_and_finetuning_tutorial.ipynb`: Notebook tutoria that explains how to generate new syntetic molechules from a model checkpoint, .
+- `dataset_manager.py`: This module provides functions to load and analyze a Uniprot tsv file for training the foundational starting model.
+- `blosum/`: This directory contains the blosum substitution matrix used to compute the soft accuracy measure.
+- `notebooks/`: This directory contains notebooks used for subsequent analysis of generated molecules, and generation use cases.
 
 ## Finenzyme Data aviability
 The Datasets used to train Finenzyme have been downloaded with UniProt. As explained in detail inside the notebook tutorial `generation_and_finetuning_tutorial.ipynb`, the Only two filters used when downloading the sequences from UniProt are discarding sequences with less than 10 amino acids and more than 500 amino acids.
