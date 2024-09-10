@@ -17,7 +17,7 @@ Typical installation time on the tested hardware: 5 to 10 minutes.
 - `tokenizer.py`: This module defines the tokenizer class, that allows to transform amino acids and keywords into model tokens using mapping files from `mapping_files/` directory.
 - `ProteinDataset.py`: This module contains the ProteinDataset class, that is in charge (toghether with `transformProtein.py`) of loading pickle files that contain the dataset (generated from  `dataset_manager.py` module) used to train the model.
 - `pytorch_training.py`: This module handles model training (Trainer class).
-- `generation_and_finetuning_tutorial.ipynb`: Notebook tutoria that explains how to generate new syntetic molechules from a model checkpoint, .
+- `generation_and_finetuning_tutorial.ipynb`: Notebook tutoria that explains how to generate new syntetic molechules from a model checkpoint, and how to fine-tune the foundational model with any protein dataset from UniProt.
 - `dataset_manager.py`: This module provides functions to load and analyze a Uniprot tsv file for training the foundational starting model.
 - `blosum/`: This directory contains the blosum substitution matrix used to compute the soft accuracy measure.
 - `notebooks/`: This directory contains notebooks used for subsequent analysis of generated molecules, and generation use cases.
